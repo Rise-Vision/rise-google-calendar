@@ -1,0 +1,77 @@
+<link rel="import" href="../polymer/polymer.html">
+
+<!--
+Element for retrieving Google Calendar event data.
+
+Example:
+
+    <rise-google-calendar></rise-google-calendar>
+
+@demo
+-->
+<dom-module id="rise-google-calendar">
+
+  <template>
+    <content></content>
+  </template>
+
+</dom-module>
+
+<script>
+  (function() {
+    /* global Polymer */
+    /* jshint newcap: false */
+
+    "use strict";
+
+    Polymer({
+
+      is: "rise-google-calendar",
+
+      properties: {
+
+        /**
+         * `calendarId` The public calendar id. A calendars id can be found by clicking
+         * the dropdown next to the calendar name and viewing the settings.
+         */
+        calendarId: {
+          type: String,
+          value: ""
+        },
+
+      },
+
+      // Element Lifecycle
+
+      ready: function() {
+
+      },
+
+      // Element Behavior
+
+      /**
+       * Fired when a response is received.
+       *
+       * @param {Object} detail
+       * @param {object} detail.items The data returned by the Events List query of the Google Calendar API
+       * @event rise-google-calendar-response
+       */
+
+      /**
+       * Fired when an error is received.
+       *
+       * @param {Object} detail
+       * @event rise-google-calendar-error
+       */
+
+      /**
+       * Performs a request to obtain the Google Calendar events data
+       *
+       */
+      go: function() {
+        // TODO: logic to come
+      }
+
+    });
+  })();
+</script>
