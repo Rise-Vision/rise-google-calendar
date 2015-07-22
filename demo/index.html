@@ -11,8 +11,35 @@
 
     <p>An example of <code>&lt;rise-google-calendar&gt;</code>:</p>
 
-    <rise-google-calendar></rise-google-calendar>
+    <rise-google-calendar
+      calendar-id="en.canadian#holiday@group.v.calendar.google.com">
+    </rise-google-calendar>
 
-    <!-- TODO: demo content to come -->
+    <script>
+      (function () {
+        "use strict";
+
+        function webComponentsReady() {
+          window.removeEventListener("WebComponentsReady", webComponentsReady);
+
+          var calendar = document.querySelector("rise-google-calendar");
+
+          calendar.addEventListener("rise-google-calendar-response", function (e) {
+            console.log(e.detail.items);
+          });
+
+          calendar.addEventListener("rise-google-calendar-error", function (e) {
+            console.log(e.detail);
+          });
+
+          calendar.go();
+
+        }
+
+        window.addEventListener("WebComponentsReady", webComponentsReady);
+
+      })();
+    </script>
+
   </body>
 </html>

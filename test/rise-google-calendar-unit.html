@@ -13,12 +13,137 @@
 
     <rise-google-calendar></rise-google-calendar>
 
+    <script src="data/events.js"></script>
+
     <script>
-      var myEl = document.querySelector('rise-google-calendar');
+      var calendarEl = document.querySelector('rise-google-calendar');
 
       suite('<rise-google-calendar>', function() {
 
-        // TODO: tests to come
+        var clock, responded, listener;
+
+        suiteSetup(function() {
+          clock = sinon.useFakeTimers();
+        });
+
+        suiteTeardown(function() {
+          clock.restore();
+        });
+
+        setup(function() {
+          responded = false;
+        });
+
+        suite("_onEventsListError", function () {
+          var errorMessage = "Not Found";
+
+          test("should fire 'rise-google-calendar-error' with message", function(done) {
+            listener = function(response) {
+              responded = true;
+
+              assert.equal(response.detail, errorMessage + " - Make sure your calendar has been made public.");
+
+              calendarEl.removeEventListener("rise-google-calendar-error", listener);
+            };
+
+            calendarEl.addEventListener("rise-google-calendar-error", listener);
+            calendarEl._onEventsListError(errorMessage);
+            assert.isTrue(responded);
+            done();
+          });
+        });
+
+        suite("_onEventsListResponse", function () {
+          teardown(function() {
+            calendarEl._setEvents([]);
+          });
+
+          test("should fire rise-google-sheet-response and set events property", function(done) {
+            listener = function(response) {
+              responded = true;
+
+              assert.property(response.detail, "items", "detail.items property exists");
+              assert.isArray(response.detail.items, "detail.items is an Array");
+              assert.deepEqual(response.detail.items, eventsData.items, "detail.items data is correct");
+
+              calendarEl.removeEventListener("rise-google-calendar-response", listener);
+            };
+
+            calendarEl.addEventListener("rise-google-calendar-response", listener);
+            calendarEl._onEventsListResponse(eventsData);
+
+            assert.deepEqual(calendarEl.events, eventsData.items, "events property is set correctly");
+            assert.isTrue(responded);
+
+            done();
+          });
+
+        });
+
+        suite("_apiLoaded", function () {
+          teardown(function() {
+            calendarEl._requestPending = false;
+            calendarEl.go.restore();
+          });
+
+          test("should call go() when request is pending", function () {
+            var goStub = sinon.stub(calendarEl, "go", function (){});
+
+            calendarEl._requestPending = true;
+            calendarEl._apiLoaded();
+
+            assert(goStub.calledOnce);
+          });
+
+          test("should not call go() when no request is pending", function () {
+            var goStub = sinon.stub(calendarEl, "go", function (){});
+
+            calendarEl._apiLoaded();
+
+            assert.equal(goStub.callCount, 0);
+          });
+        });
+
+        suite("_prepareResponse", function() {
+          test("should return an Array of event objects", function() {
+            var response = calendarEl._prepareResponse(eventsData);
+
+            assert.property(response, "items");
+            assert.isArray(response.items);
+            assert.deepEqual(response.items, eventsData.items);
+          });
+        });
+
+        suite("_getParams", function() {
+          var params;
+
+          teardown(function() {
+            calendarEl.calendarId = "";
+          });
+
+          test("should return an object that contains required param values", function () {
+            calendarEl.calendarId = "abc123";
+
+            params = calendarEl._getParams();
+
+            assert.property(params, "key");
+            assert.isString(params.key);
+            assert.equal(params.key, "AIzaSyBXxVK_IOV7LNQMuVVo_l7ZvN53ejN86zY");
+
+            assert.property(params, "singleEvents");
+            assert.isBoolean(params.singleEvents);
+            assert.equal(params.singleEvents, true);
+
+            assert.property(params, "orderBy");
+            assert.isString(params.orderBy);
+            assert.equal(params.orderBy, "startTime");
+
+            assert.property(params, "calendarId");
+            assert.isString(params.calendarId);
+            assert.equal(params.calendarId, "abc123");
+          });
+
+        });
 
       });
     </script>

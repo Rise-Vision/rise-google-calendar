@@ -1,4 +1,5 @@
 <link rel="import" href="../polymer/polymer.html">
+<link rel="import" href="../google-apis/google-client-loader.html">
 
 <!--
 Element for retrieving Google Calendar event data.
@@ -12,6 +13,8 @@ Example:
 <dom-module id="rise-google-calendar">
 
   <template>
+    <google-client-loader id="calendar" name="calendar" version="v3"
+                          on-google-api-load="_apiLoaded"></google-client-loader>
     <content></content>
   </template>
 
@@ -23,6 +26,8 @@ Example:
     /* jshint newcap: false */
 
     "use strict";
+
+    var API_KEY = "AIzaSyBXxVK_IOV7LNQMuVVo_l7ZvN53ejN86zY";
 
     Polymer({
 
@@ -39,7 +44,18 @@ Example:
           value: ""
         },
 
+        /**
+         * `events` Returns the list of events on the calendar.
+         */
+        events: {
+          type: Array,
+          value: function() { return []; },
+          readOnly: true
+        }
+
       },
+
+      _requestPending: false,
 
       // Element Lifecycle
 
@@ -64,12 +80,82 @@ Example:
        * @event rise-google-calendar-error
        */
 
+      _prepareResponse: function (resp) {
+        var response = {};
+
+        // Provide an empty array if items property missing in response.
+        response.items = (resp.items) ? resp.items : [];
+
+        // TODO: provide calendar meta data (summary, description)?
+
+        return response;
+      },
+
+      _onEventsListError: function(error) {
+        // reset the value of events
+        this._setEvents([]);
+
+        this.fire("rise-google-calendar-error", error += " - Make sure your calendar has been made public.");
+
+        this._requestPending = false;
+      },
+
+      _onEventsListResponse: function(resp) {
+        var responseData = this._prepareResponse(resp);
+
+        // use setter method to apply events value because this property is read only
+        this._setEvents(responseData.items);
+
+        this.fire("rise-google-calendar-response", responseData);
+
+        this._requestPending = false;
+      },
+
+      _getParams: function() {
+        var params = {};
+
+        // required in every request
+        params.key = API_KEY;
+        params.calendarId = this.calendarId;
+        params.singleEvents = true;
+        params.orderBy = "startTime";
+
+        return params;
+      },
+
       /**
        * Performs a request to obtain the Google Calendar events data
        *
        */
       go: function() {
-        // TODO: logic to come
+        var request;
+
+        if (this.calendarId === "") {
+          return;
+        }
+
+        if (!this.$.calendar.api) {
+          // in case go() function is called before api is loaded
+          this._requestPending = true;
+          return;
+        }
+
+        request = this.$.calendar.api.events.list(this._getParams());
+
+        request.execute(function(resp) {
+          if (resp.error) {
+            this._onEventsListError(resp.message);
+          } else {
+            this._onEventsListResponse(resp);
+          }
+        }.bind(this));
+      },
+
+      _apiLoaded: function () {
+        if (this._requestPending) {
+          this._requestPending = false;
+          this.go();
+        }
       }
 
     });
