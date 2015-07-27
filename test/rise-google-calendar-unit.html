@@ -34,20 +34,55 @@
           responded = false;
         });
 
-        suite("_onEventsListError", function () {
-          var errorMessage = "Not Found";
+        suite("_prepareError", function () {
+          var errorMessage;
+
+          test("should return an error message pertaining to a Calendar API error", function() {
+            var apiError = "Not Found";
+
+            errorMessage = calendarEl._prepareError("api", apiError);
+
+            assert.equal(errorMessage, apiError + " - Make sure your calendar has been made public.");
+          });
+
+          test("should return an error message pertaining to a range error", function() {
+            errorMessage = calendarEl._prepareError("range");
+
+            assert.equal(errorMessage, "Invalid date value. Please also ensure ISO 8601 format YYYY-MM-DD" +
+              " is used for 'startDate' and 'endDate' values");
+          });
+
+          test("should return an error message pertaining to a timezone error", function() {
+            errorMessage = calendarEl._prepareError("timezone");
+
+            assert.equal(errorMessage, "Invalid timezone value.");
+          });
+
+        });
+
+        suite("_onError", function () {
+          test("should make call to _prepareError for retrieving error message", function() {
+            var prepStub = sinon.stub(calendarEl, "_prepareError", function(){});
+
+            calendarEl._onError(null, "timezone");
+
+            assert.isTrue(prepStub.calledWithExactly("timezone", null));
+
+            calendarEl._prepareError.restore();
+          });
 
           test("should fire 'rise-google-calendar-error' with message", function(done) {
             listener = function(response) {
               responded = true;
 
-              assert.equal(response.detail, errorMessage + " - Make sure your calendar has been made public.");
+              assert.isString(response.detail, "response.detail is a String");
+              assert.notEqual(response.detail, "", "response.detail is not an empty string");
 
               calendarEl.removeEventListener("rise-google-calendar-error", listener);
             };
 
             calendarEl.addEventListener("rise-google-calendar-error", listener);
-            calendarEl._onEventsListError(errorMessage);
+            calendarEl._onError(null, "timezone");
             assert.isTrue(responded);
             done();
           });
@@ -121,6 +156,7 @@
             calendarEl.calendarId = "";
             calendarEl.startDate = "";
             calendarEl.endDate = "";
+            calendarEl.timezone = "";
           });
 
           test("should return an object that contains required param values", function () {
@@ -145,7 +181,7 @@
             assert.equal(params.calendarId, "abc123");
           });
 
-          test("should return an object that contains startDate and endDate param values", function () {
+          test("should return an object that contains timeMin and timeMax param values", function () {
             calendarEl.calendarId = "abc123";
             calendarEl.startDate = "2015-01-01";
             calendarEl.endDate = "2015-12-31";
@@ -159,6 +195,17 @@
             assert.property(params, "timeMax");
             assert.isString(params.timeMax);
             assert.include(params.timeMax, "2015-12-31T00:00:00");
+          });
+
+          test("should return an object that contains timeZone param value", function () {
+            calendarEl.calendarId = "abc123";
+            calendarEl.timezone = "America/Vancouver";
+
+            params = calendarEl._getParams();
+
+            assert.property(params, "timeZone");
+            assert.isString(params.timeZone);
+            assert.equal(params.timeZone, "America/Vancouver");
           });
 
         });
@@ -211,6 +258,26 @@
             assert.isFalse(range);
           });
 
+        });
+
+        suite("_validateTimezone", function () {
+          var timezone;
+
+          teardown(function() {
+            calendarEl.timezone = "";
+          });
+
+          test("should be a valid timezone", function () {
+            calendarEl.timezone = "America/Vancouver";
+            timezone = calendarEl._validateTimezone();
+            assert.isTrue(timezone);
+          });
+
+          test("should be an invalid timezone", function () {
+            calendarEl.timezone = "Eastern";
+            timezone = calendarEl._validateTimezone();
+            assert.isFalse(timezone);
+          });
         });
 
       });

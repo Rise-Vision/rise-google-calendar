@@ -2,6 +2,7 @@
 <link rel="import" href="../google-apis/google-client-loader.html">
 
 <script src="../moment/moment.js"></script>
+<script src="../moment-timezone/builds/moment-timezone-with-data-2010-2020.js"></script>
 
 <!--
 Element for retrieving Google Calendar event data.
@@ -69,6 +70,15 @@ Example:
         endDate: {
           type: String,
           value: ""
+        },
+
+        /**
+         * `timezone` Timezone used in the response data. Value must be an acceptable timezone, eg. America/Toronto.
+         * The default is the time zone of the calendar.
+         */
+        timezone: {
+          type: String,
+          value: ""
         }
 
       },
@@ -109,13 +119,31 @@ Example:
         return response;
       },
 
-      _onEventsListError: function(error) {
+      _prepareError: function (type, error) {
+        var api = "Make sure your calendar has been made public.",
+          message = "";
+
+        switch(type) {
+          case "api":
+            message = (error && typeof error === "string" && error !== "") ? error + " - " + api : api;
+            break;
+          case "range":
+            message = "Invalid date value. Please also ensure ISO 8601 format YYYY-MM-DD" +
+              " is used for 'startDate' and 'endDate' values";
+            break;
+          case "timezone":
+            message = "Invalid timezone value.";
+            break;
+        }
+
+        return message;
+      },
+
+      _onError: function(error, type) {
         // reset the value of events
         this._setEvents([]);
 
-        this.fire("rise-google-calendar-error", error += " - Make sure your calendar has been made public.");
-
-        this._requestPending = false;
+        this.fire("rise-google-calendar-error", this._prepareError(type, error));
       },
 
       _onEventsListResponse: function(resp) {
@@ -125,8 +153,17 @@ Example:
         this._setEvents(responseData.items);
 
         this.fire("rise-google-calendar-response", responseData);
+      },
 
-        this._requestPending = false;
+      _validateTimezone: function() {
+        var found;
+
+        if (this.timezone !== "") {
+          found = moment.tz.names().indexOf(this.timezone);
+          return found !== -1;
+        }
+
+        return true;
       },
 
       _validateRange: function() {
@@ -149,6 +186,20 @@ Example:
         return true;
       },
 
+      _isValid: function() {
+        if (!this._validateRange()) {
+          this._onError(null, "range");
+          return false;
+        }
+
+        if (!this._validateTimezone()) {
+          this._onError(null, "timezone");
+          return false;
+        }
+
+        return true;
+      },
+
       _getParams: function() {
         var params = {};
 
@@ -164,6 +215,10 @@ Example:
 
         if (this.endDate !== "") {
           params.timeMax = moment(this.endDate).format();
+        }
+
+        if (this.timezone !== "") {
+          params.timeZone = this.timezone;
         }
 
         return params;
@@ -186,25 +241,18 @@ Example:
           return;
         }
 
-        if (!this._validateRange()) {
-          // reset the value of events
-          this._setEvents([]);
+        if (this._isValid()) {
+          request = this.$.calendar.api.events.list(this._getParams());
 
-          this.fire("rise-google-calendar-error", "Invalid date value. Please also ensure " +
-            "ISO 8601 format YYYY-MM-DD is used for 'startDate' and 'endDate' values");
-
-          return;
+          request.execute(function(resp) {
+            if (resp.error) {
+              this._onError(resp.message, "api");
+            } else {
+              this._onEventsListResponse(resp);
+            }
+          }.bind(this));
         }
 
-        request = this.$.calendar.api.events.list(this._getParams());
-
-        request.execute(function(resp) {
-          if (resp.error) {
-            this._onEventsListError(resp.message);
-          } else {
-            this._onEventsListResponse(resp);
-          }
-        }.bind(this));
       },
 
       _apiLoaded: function () {
