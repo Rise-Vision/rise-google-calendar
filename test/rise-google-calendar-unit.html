@@ -119,6 +119,8 @@
 
           teardown(function() {
             calendarEl.calendarId = "";
+            calendarEl.startDate = "";
+            calendarEl.endDate = "";
           });
 
           test("should return an object that contains required param values", function () {
@@ -141,6 +143,72 @@
             assert.property(params, "calendarId");
             assert.isString(params.calendarId);
             assert.equal(params.calendarId, "abc123");
+          });
+
+          test("should return an object that contains startDate and endDate param values", function () {
+            calendarEl.calendarId = "abc123";
+            calendarEl.startDate = "2015-01-01";
+            calendarEl.endDate = "2015-12-31";
+
+            params = calendarEl._getParams();
+
+            assert.property(params, "timeMin");
+            assert.isString(params.timeMin);
+            assert.include(params.timeMin, "2015-01-01T00:00:00");
+
+            assert.property(params, "timeMax");
+            assert.isString(params.timeMax);
+            assert.include(params.timeMax, "2015-12-31T00:00:00");
+          });
+
+        });
+
+        suite("_validateRange", function () {
+          var range;
+
+          teardown(function() {
+            calendarEl.startDate = "";
+            calendarEl.endDate = "";
+          });
+
+          setup(function () {
+            range = false;
+          });
+
+          test("should be a valid start Date", function () {
+            calendarEl.startDate = "2015-07-22";
+            range = calendarEl._validateRange();
+            assert.isTrue(range);
+          });
+
+          test("should be an invalid start Date due to format", function () {
+            calendarEl.startDate = "22-07-2015";
+            range = calendarEl._validateRange();
+            assert.isFalse(range);
+          });
+
+          test("should be an invalid start Date due to incorrect date values", function () {
+            calendarEl.startDate = "56-07-2015";
+            range = calendarEl._validateRange();
+            assert.isFalse(range);
+          });
+
+          test("should be a valid end Date", function () {
+            calendarEl.endDate = "2015-12-31";
+            range = calendarEl._validateRange();
+            assert.isTrue(range);
+          });
+
+          test("should be an invalid end Date due to format", function () {
+            calendarEl.endDate = "11-2015-22";
+            range = calendarEl._validateRange();
+            assert.isFalse(range);
+          });
+
+          test("should be an invalid end Date due to incorrect date values", function () {
+            calendarEl.endDate = "56-07-2015";
+            range = calendarEl._validateRange();
+            assert.isFalse(range);
           });
 
         });

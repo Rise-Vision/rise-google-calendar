@@ -1,12 +1,14 @@
 <link rel="import" href="../polymer/polymer.html">
 <link rel="import" href="../google-apis/google-client-loader.html">
 
+<script src="../moment/moment.js"></script>
+
 <!--
 Element for retrieving Google Calendar event data.
 
 Example:
 
-    <rise-google-calendar></rise-google-calendar>
+    <rise-google-calendar calendar-id="abc123" start-date="2015-01-01"></rise-google-calendar>
 
 @demo
 -->
@@ -22,7 +24,7 @@ Example:
 
 <script>
   (function() {
-    /* global Polymer */
+    /* global Polymer, moment */
     /* jshint newcap: false */
 
     "use strict";
@@ -51,6 +53,22 @@ Example:
           type: Array,
           value: function() { return []; },
           readOnly: true
+        },
+
+        /**
+         * `startDate` An event's start date to filter by. Value must be in ISO 8601 YYYY-MM-DD format.
+         */
+        startDate: {
+          type: String,
+          value: ""
+        },
+
+        /**
+         * `endDate` An event's end date to filter by. Value must be in ISO 8601 YYYY-MM-DD format.
+         */
+        endDate: {
+          type: String,
+          value: ""
         }
 
       },
@@ -111,6 +129,26 @@ Example:
         this._requestPending = false;
       },
 
+      _validateRange: function() {
+        var start, end;
+
+        if (this.startDate !== "") {
+          start = moment(this.startDate, "YYYY-MM-DD", true);
+          if (!start.isValid()) {
+            return false;
+          }
+        }
+
+        if (this.endDate !== "") {
+          end = moment(this.endDate, "YYYY-MM-DD", true);
+          if (!end.isValid()) {
+            return false;
+          }
+        }
+
+        return true;
+      },
+
       _getParams: function() {
         var params = {};
 
@@ -119,6 +157,14 @@ Example:
         params.calendarId = this.calendarId;
         params.singleEvents = true;
         params.orderBy = "startTime";
+
+        if (this.startDate !== "") {
+          params.timeMin = moment(this.startDate).format();
+        }
+
+        if (this.endDate !== "") {
+          params.timeMax = moment(this.endDate).format();
+        }
 
         return params;
       },
@@ -137,6 +183,16 @@ Example:
         if (!this.$.calendar.api) {
           // in case go() function is called before api is loaded
           this._requestPending = true;
+          return;
+        }
+
+        if (!this._validateRange()) {
+          // reset the value of events
+          this._setEvents([]);
+
+          this.fire("rise-google-calendar-error", "Invalid date value. Please also ensure " +
+            "ISO 8601 format YYYY-MM-DD is used for 'startDate' and 'endDate' values");
+
           return;
         }
 
