@@ -13,12 +13,107 @@
 
 <rise-google-calendar></rise-google-calendar>
 
+<script src="../../underscore/underscore.js"></script>
+<script src="data/events.js"></script>
+<script src="mock/google-calendar-api-mock.js"></script>
+
 <script>
-  var myEl = document.querySelector('rise-google-calendar');
+  var calendarEl = document.querySelector('rise-google-calendar');
 
   suite('<rise-google-calendar>', function() {
 
-    // TODO: tests to come
+    var responseHandler;
+
+    suite("request data", function() {
+      teardown(function () {
+        calendarEl.calendarId = "";
+        calendarEl.startDate = "";
+        calendarEl.timezone = "";
+      });
+
+      test("should return an Array of event objects when API request responds successfully", function(done) {
+        responseHandler = function(response) {
+
+          assert.property(response.detail, "items", "detail.items property exists");
+          assert.isArray(response.detail.items, "detail.items is an Array");
+          assert.deepEqual(response.detail.items, eventsData.items);
+
+          calendarEl.removeEventListener("rise-google-calendar-response", responseHandler);
+          done();
+        };
+
+        calendarEl.calendarId = "abc123";
+        window.setCalendarAPIResponse(true); // force a successful response
+        calendarEl.addEventListener("rise-google-calendar-response", responseHandler);
+        calendarEl.go();
+      });
+
+      test("should return error message when API request responds unsuccessful", function (done) {
+        responseHandler = function(response) {
+
+          assert.isString(response.detail, "detail is a String");
+          assert.equal(response.detail, window.calendarAPIResp.message + " - Make sure your calendar has been made public.");
+
+          calendarEl.removeEventListener("rise-google-calendar-error", responseHandler);
+          done();
+        };
+
+        calendarEl.calendarId = "abc123";
+        window.setCalendarAPIResponse(false); // force a unsuccessful api response
+        calendarEl.addEventListener("rise-google-calendar-error", responseHandler);
+        calendarEl.go();
+      });
+
+      test("should return error message when component validation fails due to range", function (done) {
+        responseHandler = function(response) {
+
+          assert.isString(response.detail, "detail is a String");
+          assert.equal(response.detail, "Invalid date value. Please also ensure ISO 8601 format YYYY-MM-DD" +
+            " is used for 'startDate' and 'endDate' values");
+
+          calendarEl.removeEventListener("rise-google-calendar-error", responseHandler);
+          done();
+        };
+
+        calendarEl.calendarId = "abc123";
+        calendarEl.startDate = "10-10-2015";
+        calendarEl.addEventListener("rise-google-calendar-error", responseHandler);
+        calendarEl.go();
+
+      });
+
+      test("should return error message when component validation fails due to timezone", function (done) {
+        responseHandler = function(response) {
+
+          assert.isString(response.detail, "detail is a String");
+          assert.equal(response.detail, "Invalid timezone value.");
+
+          calendarEl.removeEventListener("rise-google-calendar-error", responseHandler);
+          done();
+        };
+
+        calendarEl.calendarId = "abc123";
+        calendarEl.timezone = "Eastern";
+        calendarEl.addEventListener("rise-google-calendar-error", responseHandler);
+        calendarEl.go();
+
+      });
+
+      test("should not execute further request when there is one pending a response", function() {
+        var requestStub = sinon.stub(calendarEl.$.calendar.api.events, "list", function (){
+          return {execute: function(){}}
+        });
+
+        calendarEl.calendarId = "abc123";
+        calendarEl.go();
+        calendarEl.go();
+        calendarEl.go();
+
+        assert(requestStub.calledOnce);
+        calendarEl.$.calendar.api.events.list.restore();
+      });
+
+    });
 
   });
 </script>
