@@ -79,6 +79,14 @@ Example:
         timezone: {
           type: String,
           value: ""
+        },
+
+        /**
+         * `refresh` The number of minutes before another request will be made.
+         */
+        refresh: {
+          type: Number,
+          value: 0
         }
 
       },
@@ -107,6 +115,21 @@ Example:
        * @param {Object} detail
        * @event rise-google-calendar-error
        */
+
+      _startTimer: function() {
+        var refreshFn = this.go,
+          self = this;
+
+        this.refresh = parseInt(this.refresh, 10);
+
+        if (!isNaN(this.refresh) && this.refresh !== 0) {
+          this.refresh = (this.refresh < 5) ? 5 : this.refresh;
+
+          this.debounce("refresh", function () {
+            refreshFn.call(self);
+          }, this.refresh * 60000);
+        }
+      },
 
       _prepareResponse: function (resp) {
         var response = {};
@@ -144,6 +167,13 @@ Example:
         this._setEvents([]);
 
         this.fire("rise-google-calendar-error", this._prepareError(type, error));
+
+        this._requestPending = false;
+
+        if (type === "api") {
+          // if error is api related, proceed with refresh timer in case their calendar visibility gets set to public
+          this._startTimer();
+        }
       },
 
       _onEventsListResponse: function(resp) {
@@ -153,6 +183,9 @@ Example:
         this._setEvents(responseData.items);
 
         this.fire("rise-google-calendar-response", responseData);
+
+        this._requestPending = false;
+        this._startTimer();
       },
 
       _validateTimezone: function() {
@@ -231,7 +264,7 @@ Example:
       go: function() {
         var request;
 
-        if (this.calendarId === "") {
+        if (this.calendarId === "" || this._requestPending) {
           return;
         }
 
@@ -243,6 +276,8 @@ Example:
 
         if (this._isValid()) {
           request = this.$.calendar.api.events.list(this._getParams());
+
+          this._requestPending = true;
 
           request.execute(function(resp) {
             if (resp.error) {
