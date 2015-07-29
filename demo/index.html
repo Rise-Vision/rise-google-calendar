@@ -1,48 +1,79 @@
-<!doctype html>
+<!DOCTYPE html>
 <html>
-  <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, minimum-scale=1.0, initial-scale=1.0, user-scalable=yes">
-    <title>rise-google-calendar Demo</title>
-    <script src="../../webcomponentsjs/webcomponents-lite.js"></script>
-    <link rel="import" href="../rise-google-calendar.html">
-  </head>
-  <body>
+<head>
+  <meta name="viewport" content="width=device-width, minimum-scale=1.0, initial-scale=1.0, user-scalable=yes">
+  <title>rise-google-calendar Playlist Content Demo</title>
 
-    <p>An example of <code>&lt;rise-google-calendar&gt;</code>:</p>
+  <script src="../../webcomponentsjs/webcomponents-lite.min.js"></script>
 
-    <rise-google-calendar
-      calendar-id="en.canadian#holiday@group.v.calendar.google.com"
-      refresh="5"
-      start-date="2015-01-01" end-date="2015-12-31"
-      timezone="America/Vancouver">
-    </rise-google-calendar>
+  <!-- Handy Table styling -->
+  <link rel="stylesheet" href="../../pure/tables-min.css">
 
-    <script>
-      (function () {
-        "use strict";
+  <link rel="import" href="../../rise-page/rise-page.html">
+  <link rel="import" href="../../rise-playlist/rise-playlist.html">
+  <link rel="import" href="../../rise-playlist-item/rise-playlist-item.html">
+  <link rel="import" href="../rise-google-calendar.html">
 
-        function webComponentsReady() {
-          window.removeEventListener("WebComponentsReady", webComponentsReady);
+</head>
+<body>
 
-          var calendar = document.querySelector("rise-google-calendar");
+<p>An example of <code>&lt;rise-google-calendar&gt;</code>:</p>
 
-          calendar.addEventListener("rise-google-calendar-response", function (e) {
-            console.log(e.detail.items);
-          });
+<rise-page display-id="VGZUDDWYAZHY">
 
-          calendar.addEventListener("rise-google-calendar-error", function (e) {
-            console.log(e.detail);
-          });
+  <rise-playlist id="playlist">
 
-          calendar.go();
+    <rise-playlist-item>
+      <rise-google-calendar
+        id="googleCalendar"
+        calendar-id="en.canadian#holiday@group.v.calendar.google.com"
+        start-date="2015-01-01" end-date="2015-12-31">
+        <!-- Example HTML structure -->
+        <h3>Holidays in Canada</h3>
+        <table id="calendarTable" class="pure-table pure-table-bordered">
+          <thead>
+          <tr>
+            <th>Date</th>
+            <th>Summary</th>
+          </tr>
+          </thead>
+          <tbody>
+          <!-- dynamically populate table with calendar data -->
+          </tbody>
+        </table>
+      </rise-google-calendar>
+    </rise-playlist-item>
 
-        }
+  </rise-playlist>
 
-        window.addEventListener("WebComponentsReady", webComponentsReady);
+</rise-page>
 
-      })();
-    </script>
+<!-- Handy JS library to parse, validate, manipulate, and display dates in JavaScript. -->
+<script src="../../moment/moment.js"></script>
 
-  </body>
+<!-- Importing javascript which is the logic in building and managing the Google Calendar content -->
+<script type="text/javascript" src="demo-playlist.js"></script>
+
+<script>
+  /* global DemoPlaylist */
+
+  (function () {
+    "use strict";
+
+    function webComponentsReady() {
+      window.removeEventListener("WebComponentsReady", webComponentsReady);
+
+      // new instance of DemoPlaylist object
+      var demo = new DemoPlaylist();
+
+      // initialize the content
+      demo.init();
+    }
+
+    window.addEventListener("WebComponentsReady", webComponentsReady);
+
+  })();
+</script>
+
+</body>
 </html>
