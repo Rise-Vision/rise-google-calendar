@@ -61,14 +61,33 @@
         });
 
         suite("_onError", function () {
+          var startTimerStub;
+
           test("should make call to _prepareError for retrieving error message", function() {
             var prepStub = sinon.stub(calendarEl, "_prepareError", function(){});
 
             calendarEl._onError(null, "timezone");
 
             assert.isTrue(prepStub.calledWithExactly("timezone", null));
-
             calendarEl._prepareError.restore();
+          });
+
+          test("should make call to _startTimer if error type is 'api'", function() {
+            startTimerStub = sinon.stub(calendarEl, "_startTimer", function(){});
+
+            calendarEl._onError(null, "api");
+
+            assert(startTimerStub.calledOnce);
+            calendarEl._startTimer.restore();
+          });
+
+          test("should not make call to _startTimer if error type is not 'api'", function() {
+            startTimerStub = sinon.stub(calendarEl, "_startTimer", function(){});
+
+            calendarEl._onError(null, "range");
+
+            assert.equal(startTimerStub.callCount, 0);
+            calendarEl._startTimer.restore();
           });
 
           test("should fire 'rise-google-calendar-error' with message", function(done) {
@@ -278,6 +297,48 @@
             timezone = calendarEl._validateTimezone();
             assert.isFalse(timezone);
           });
+        });
+
+        suite("_startTimer", function() {
+          var goStub;
+
+          setup(function () {
+            goStub = sinon.stub(calendarEl, "go", function () {});
+          });
+
+          teardown(function() {
+            calendarEl.refresh = 0;
+            calendarEl.go.restore();
+          });
+
+          test("should not make a new request for data due to refresh value being 0", function() {
+            calendarEl._startTimer();
+
+            assert.equal(goStub.callCount, 0);
+          });
+
+          test("should not make a new request for data due to refresh value not being a number", function() {
+            calendarEl.refresh = "20d";
+            calendarEl._startTimer();
+
+            assert.equal(goStub.callCount, 0);
+          });
+
+          test("should enforce a minimum refresh interval of 5 (minutes)", function() {
+            calendarEl.refresh = 2;
+            calendarEl._startTimer();
+
+            assert.equal(calendarEl.refresh, 5);
+          });
+
+          test("should make a new request for data", function() {
+            calendarEl.refresh = 30;
+            calendarEl._startTimer();
+
+            clock.tick(1800000);
+            assert(goStub.calledOnce);
+          });
+
         });
 
       });
