@@ -18,7 +18,7 @@ At this time Chrome is the only browser that this project and Rise Vision suppor
 For example, to retrieve events from only 2015, add the following attributes below:
 
 ```
-<rise-google-calendar calendar-id="abc123" start-date="2015-01-01" end-date="2015-12-31"></rise-google-sheet>
+<rise-google-calendar calendar-id="abc123" start-date="2015-01-01" end-date="2015-12-31"></rise-google-calendar>
 ```
 The format that is required for the `start-date` and `end-date` attributes is [ISO 8601](http://www.iso.org/iso/home/standards/iso8601.htm) format - `YYYY-MM-DD`. 
 
@@ -36,7 +36,7 @@ The value provided must be an acceptable and valid timezone. For example, `Ameri
 ## Usage
 To use the Google Calendar Web Component, you should first install it using Bower:
 ```
-bower install https://github.com/Rise-Vision/rise-google-sheet.git
+bower install https://github.com/Rise-Vision/rise-google-calendar.git
 ```
 
 Next, construct your HTML page. You should include `webcomponents-lite.min.js` before any code that touches the DOM, and load the web component using an HTML Import. For example:
