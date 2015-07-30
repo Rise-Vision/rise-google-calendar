@@ -4,13 +4,81 @@
 
 `rise-google-calendar` is a web component that retrieves event data from a Google Calendar specified by calendar id. It uses the Events list query feature of the [Google Calendar API](https://developers.google.com/google-apps/calendar/) where each item represents a calendar event.
 
-The `calendar-id` attribute is required which is to identify the Google Calendar you want to target. A calendar must be made public and a calendars id can be found by clicking the dropdown next to the calendar name and viewing the settings..
+The `calendar-id` attribute is required which is to identify the Google Calendar you want to target. A calendar must be made public and a calendars id can be found by clicking the dropdown next to the calendar name and viewing the settings.
 
 The data is periodically retrieved if the `refresh` attribute is set, although a minimum refresh time of 5 minutes is enforced.
 
 `rise-google-calendar` works in conjunction with [Rise Vision](http://www.risevision.com), the [digital signage management application](http://rva.risevision.com/) that runs on [Google Cloud](https://cloud.google.com).
 
 At this time Chrome is the only browser that this project and Rise Vision supports.
+
+### Range
+`rise-google-calendar` allows for fetching specific events from a calendar by providing start and end dates to specify the range of events you want to retrieve. 
+
+For example, to retrieve events from only 2015, add the following attributes below:
+
+```
+<rise-google-calendar calendar-id="abc123" start-date="2015-01-01" end-date="2015-12-31"></rise-google-sheet>
+```
+The format that is required for the `start-date` and `end-date` attributes is [ISO 8601](http://www.iso.org/iso/home/standards/iso8601.htm) format - `YYYY-MM-DD`. 
+
+### Timezone
+`rise-google-calendar` allows for specifying a particular timezone to be applied in the response data. The default is the time zone of the calendar. 
+
+For example, to apply Toronto, Canada timezone to all events provided in the response, add the following attribute below:
+
+```
+<rise-google-calendar calendar-id="abc123" timezone="America/Toronto">
+```
+
+The value provided must be an acceptable and valid timezone. For example, `America/Toronto`. For a list of available timezones per country see ["Time Zones by Country"](http://www.timezoneconverter.com/cgi-bin/zonehelp.tzc).
+
+## Usage
+To use the Google Calendar Web Component, you should first install it using Bower:
+```
+bower install https://github.com/Rise-Vision/rise-google-sheet.git
+```
+
+Next, construct your HTML page. You should include `webcomponents-lite.min.js` before any code that touches the DOM, and load the web component using an HTML Import. For example:
+
+```
+<!DOCTYPE html>
+<html>
+  <head>
+    <script src="bower_components/webcomponentsjs/webcomponents-lite.min.js"></script>
+    <link rel="import" href="bower_components/rise-google-calendar/rise-google-calendar.html">
+  </head>
+  <body>
+    <rise-google-calendar
+      calendar-id="abc123"
+      start-date="2015-01-01"
+      refresh="10"></rise-google-calendar>
+
+    <script>
+      // Wait for 'WebComponentsReady'.
+      window.addEventListener('WebComponentsReady', function(e) {
+        var calendar = document.querySelector('rise-google-calendar');
+
+        // Respond to events it fires.
+        calendar.addEventListener('rise-google-calendar-response', function(e) {
+          if (e.detail && e.detail.items) {
+            console.log(e.detail.items); // Array of event objects
+          }
+        });
+
+        calendar.go(); // Executes a request.
+      });
+    </script>
+  </body>
+</html>
+```
+
+`rise-google-calendar` returns an Array of event objects that the Google Calendar API has provided. It uses the Events List query feature of the API where each items represents a single event.
+
+For more detail on the format of event objects see ["Events"](https://developers.google.com/google-apps/calendar/v3/reference/events#resource).
+
+## Documentation
+For further documentation on `rise-google-calendar` attributes, methods, usage, and a comprehensive demo, please see [here](http://rise-vision.github.io/rise-google-calendar).
 
 ## Built With
 - [Polymer](https://www.polymer-project.org/)

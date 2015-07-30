@@ -5,11 +5,48 @@
 <script src="../moment-timezone/builds/moment-timezone-with-data-2010-2020.js"></script>
 
 <!--
-Element for retrieving Google Calendar event data.
+`rise-google-calendar` is a web component that retrieves event data from a Google Calendar
+specified by calendar id. It uses the Events list query feature of the [Google Calendar API](https://developers.google.com/google-apps/calendar/) where each item represents a calendar event.
 
-Example:
+The `calendar-id` attribute is required which is to identify the Google Calendar you want
+to target. A calendar must be made public and a calendars id can be found by clicking the
+dropdown next to the calendar name and viewing the settings.
 
-    <rise-google-calendar calendar-id="abc123" start-date="2015-01-01"></rise-google-calendar>
+The data is periodically retrieved if the `refresh` attribute is set, although a minimum
+refresh time of 5 minutes is enforced.
+
+#### Example Usage
+
+   <rise-google-calendar calendar-id="abc123"></rise-google-calendar>
+
+    <script>
+      var calendar = document.querySelector('rise-google-calendar');
+
+      // Respond to events it fires.
+      calendar.addEventListener('rise-google-calendar-response', function(e) {
+        if (e.detail && e.detail.items) {
+          console.log(e.detail.items); // Array of event objects
+        }
+      });
+
+      calendar.go(); // Executes a request.
+    </script>
+
+##### Range
+`rise-google-calendar` allows for fetching specific events from a calendar by providing start
+and end dates to specify the range of events you want to retrieve.
+
+For example, to retrieve events from only 2015:
+
+   <rise-google-calendar calendar-id="abc123" start-date="2015-01-01" end-date="2015-12-31"></rise-google-sheet>
+
+##### Timezone
+`rise-google-calendar` allows for specifying a particular timezone to be applied in the response data.
+The default is the time zone of the calendar.
+
+For example, to apply Toronto, Canada timezone to all events provided in the response:
+
+   <rise-google-calendar calendar-id="abc123" timezone="America/Toronto">
 
 @demo
 -->
@@ -105,7 +142,7 @@ Example:
        * Fired when a response is received.
        *
        * @param {Object} detail
-       * @param {object} detail.items The data returned by the Events List query of the Google Calendar API
+       * @param {Object} detail.items The data returned by the Events List query of the Google Calendar API
        * @event rise-google-calendar-response
        */
 
