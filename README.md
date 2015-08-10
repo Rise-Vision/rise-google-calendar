@@ -2,15 +2,11 @@
 
 ## Introduction
 
-`rise-google-calendar` is a web component that retrieves event data from a Google Calendar specified by calendar id. It uses the Events list query feature of the [Google Calendar API](https://developers.google.com/google-apps/calendar/) where each item represents a calendar event.
+`rise-google-calendar` is a Polymer Web Component that works with [Rise Vision](https://www.risevision.com/), the digital signage management application for [Web Designers](http://risevision.com/web-designers). It retrieves event data from a Google Calendar specified by calendar id. It uses the Events list query feature of the [Google Calendar API](https://developers.google.com/google-apps/calendar/) where each item represents a calendar event.
 
 The `calendar-id` attribute is required which is to identify the Google Calendar you want to target. A calendar must be made public and a calendars id can be found by clicking the dropdown next to the calendar name and viewing the settings.
 
 The data is periodically retrieved if the `refresh` attribute is set, although a minimum refresh time of 5 minutes is enforced.
-
-`rise-google-calendar` works in conjunction with [Rise Vision](http://www.risevision.com), the [digital signage management application](http://rva.risevision.com/) that runs on [Google Cloud](https://cloud.google.com).
-
-At this time Chrome is the only browser that this project and Rise Vision supports.
 
 ### Range
 `rise-google-calendar` allows for fetching specific events from a calendar by providing start and end dates to specify the range of events you want to retrieve. 
