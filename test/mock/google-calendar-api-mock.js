@@ -28,16 +28,18 @@
     window.calendarAPIResp = {};
   }
 
-  window.setCalendarAPIResponse = function(successful){
+  window.setCalendarAPIResponse = function(successful, code){
     if (successful) {
       window.calendarAPIResp = _.clone(eventsData);
       calendarAPIResp.result = _.clone(eventsData);
     } else {
       window.calendarAPIResp = {
         error: {
-          message: "Not Found"
+          message: code === -1 ? "A network error occurred, and the request could not be completed." : "Not Found",
+          code: code
         },
-        message: "Not Found"
+        message: code === -1 ? "A network error occurred, and the request could not be completed." : "Not Found",
+        code: code
       }
     }
   };

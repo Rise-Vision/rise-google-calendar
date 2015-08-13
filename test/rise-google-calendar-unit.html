@@ -112,7 +112,9 @@
             calendarEl._setEvents([]);
           });
 
-          test("should fire rise-google-sheet-response and set events property", function(done) {
+          test("should fire rise-google-sheet-response, set events property, and save to local storage", function(done) {
+            var setCachedDataStub = sinon.stub(calendarEl, "_setCachedData", function () {});
+
             listener = function(response) {
               responded = true;
 
@@ -126,8 +128,11 @@
             calendarEl.addEventListener("rise-google-calendar-response", listener);
             calendarEl._onEventsListResponse(eventsData);
 
+            assert(setCachedDataStub.calledOnce, "call to _setCachedData is made");
             assert.deepEqual(calendarEl.events, eventsData.items, "events property is set correctly");
             assert.isTrue(responded);
+
+            calendarEl._setCachedData.restore();
 
             done();
           });
@@ -135,14 +140,18 @@
         });
 
         suite("_apiLoaded", function () {
+          var goStub;
+
+          setup(function() {
+            goStub = sinon.stub(calendarEl, "go", function (){});
+          });
+
           teardown(function() {
             calendarEl._requestPending = false;
             calendarEl.go.restore();
           });
 
           test("should call go() when request is pending", function () {
-            var goStub = sinon.stub(calendarEl, "go", function (){});
-
             calendarEl._requestPending = true;
             calendarEl._apiLoaded();
 
@@ -150,8 +159,6 @@
           });
 
           test("should not call go() when no request is pending", function () {
-            var goStub = sinon.stub(calendarEl, "go", function (){});
-
             calendarEl._apiLoaded();
 
             assert.equal(goStub.callCount, 0);
@@ -338,6 +345,67 @@
             clock.tick(1800000);
             assert(goStub.calledOnce);
           });
+
+        });
+
+        suite("_startOfflineTimer", function() {
+
+          test("should make a call to _offlineCheck after 500ms", function() {
+            var offlineStub = sinon.stub(calendarEl, "_offlineCheck", function () {});
+            calendarEl._startOfflineTimer();
+
+            clock.tick(500);
+            assert(offlineStub.calledOnce);
+            calendarEl._offlineCheck.restore();
+          });
+
+        });
+
+        suite("_handleOffline", function () {
+          var cachedDataStub;
+
+          teardown(function () {
+            calendarEl._getCachedData.restore();
+            calendarEl._setEvents([]);
+          });
+
+          test("should fire rise-google-sheet-response and set events property with cached data", function (done) {
+            cachedDataStub = sinon.stub(calendarEl, "_getCachedData", function() {
+              return {
+                items: eventsData.items
+              };
+            });
+
+            listener = function(response) {
+              responded = true;
+
+              assert.deepEqual(response.detail.items, eventsData.items, "detail.items data is correct");
+
+              calendarEl.removeEventListener("rise-google-calendar-response", listener);
+            };
+
+            calendarEl.addEventListener("rise-google-calendar-response", listener);
+            calendarEl._handleOffline();
+
+            assert.deepEqual(calendarEl.events, eventsData.items, "events property is set correctly");
+            assert.isTrue(responded);
+
+            done();
+          });
+
+          test("should make call to _onError due to no cached data", function () {
+            var errorStub = sinon.stub(calendarEl, "_onError", function () {});
+
+            cachedDataStub = sinon.stub(calendarEl, "_getCachedData", function() {
+              return null;
+            });
+
+            calendarEl._handleOffline();
+            assert(errorStub.calledOnce);
+
+            calendarEl._onError.restore();
+          });
+
 
         });
 

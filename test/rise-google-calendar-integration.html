@@ -22,7 +22,20 @@
 
   suite('<rise-google-calendar>', function() {
 
-    var responseHandler;
+    var responseHandler, clock;
+
+    // Runs for every suite.
+    suiteSetup(function() {
+      clock = sinon.useFakeTimers();
+    });
+
+    suiteTeardown(function() {
+      clock.restore();
+    });
+
+    setup(function() {
+      localStorage.removeItem("risecalendar"); // clear localStorage
+    });
 
     suite("request data", function() {
       teardown(function () {
@@ -59,7 +72,7 @@
         };
 
         calendarEl.calendarId = "abc123";
-        window.setCalendarAPIResponse(false); // force a unsuccessful api response
+        window.setCalendarAPIResponse(false, 404); // force a unsuccessful api response
         calendarEl.addEventListener("rise-google-calendar-error", responseHandler);
         calendarEl.go();
       });
@@ -99,18 +112,52 @@
 
       });
 
-      test("should not execute further request when there is one pending a response", function() {
-        var requestStub = sinon.stub(calendarEl.$.calendar.api.events, "list", function (){
-          return {execute: function(){}}
-        });
+    });
+
+    suite("offline cached data", function () {
+
+      teardown(function () {
+        calendarEl.calendarId = "";
+        calendarEl.refresh = 0;
+      });
+
+      test("should return error message when network error and no cached data", function (done) {
+        responseHandler = function(response) {
+          calendarEl.removeEventListener("rise-google-calendar-error", responseHandler);
+
+          assert.equal(response.detail, "A network error occurred and no cached data available");
+
+          done();
+        };
 
         calendarEl.calendarId = "abc123";
-        calendarEl.go();
-        calendarEl.go();
+
+        calendarEl.addEventListener("rise-google-calendar-error", responseHandler);
+        window.setCalendarAPIResponse(false, -1); // force an offline response
         calendarEl.go();
 
-        assert(requestStub.calledOnce);
-        calendarEl.$.calendar.api.events.list.restore();
+      });
+
+      test("should return an Array of cached event objects upon refresh and a network error", function (done) {
+        responseHandler = function(response) {
+          calendarEl.removeEventListener("rise-google-calendar-response", responseHandler);
+
+          assert.deepEqual(response.detail.items, eventsData.items);
+
+          done();
+        };
+
+        calendarEl.calendarId = "abc123";
+        calendarEl.refresh = 5;
+
+        window.setCalendarAPIResponse(true); // force a successful response
+        calendarEl.go();
+
+        calendarEl.addEventListener("rise-google-calendar-response", responseHandler);
+        window.setCalendarAPIResponse(false, -1); // force an offline response
+
+        clock.tick(300000); // refresh will occur
+
       });
 
     });
