@@ -69,6 +69,16 @@ For example, to apply Toronto, Canada timezone to all events provided in the res
 
     var API_KEY = "AIzaSyBXxVK_IOV7LNQMuVVo_l7ZvN53ejN86zY";
 
+    var LOCAL_STORAGE_NAME = "risecalendar";
+
+    function supportsLocalStorage() {
+      try {
+        return "localStorage" in window && window.localStorage !== null;
+      } catch (e) {
+        return false;
+      }
+    }
+
     Polymer({
 
       is: "rise-google-calendar",
@@ -130,12 +140,6 @@ For example, to apply Toronto, Canada timezone to all events provided in the res
 
       _requestPending: false,
 
-      // Element Lifecycle
-
-      ready: function() {
-
-      },
-
       // Element Behavior
 
       /**
@@ -152,6 +156,59 @@ For example, to apply Toronto, Canada timezone to all events provided in the res
        * @param {Object} detail
        * @event rise-google-calendar-error
        */
+
+      _getCachedData: function () {
+        if (supportsLocalStorage()) {
+          // retrieve cached data and parse back
+          return JSON.parse(localStorage.getItem(LOCAL_STORAGE_NAME));
+        }
+
+        return null;
+      },
+
+      _setCachedData: function (data) {
+        if (supportsLocalStorage()) {
+          localStorage.setItem(LOCAL_STORAGE_NAME, JSON.stringify(data));
+        }
+      },
+
+      _handleOffline: function () {
+        var cachedData = this._getCachedData();
+
+        if (cachedData) {
+          this._setEvents(cachedData.items);
+
+          this.fire("rise-google-calendar-response", cachedData);
+
+          this._requestPending = false;
+          this._startTimer();
+
+        } else {
+          this._onError(null, "offline");
+        }
+      },
+
+      _offlineCheck: function () {
+        var jsApi = this.$.calendar.querySelector("google-js-api");
+
+        if (jsApi && !jsApi.libraryLoaded && jsApi.libraryErrorMessage !== null) {
+          // no internet, offline
+          this._handleOffline();
+        }
+        else {
+          // start another check for being offline
+          this._startOfflineTimer();
+        }
+      },
+
+      _startOfflineTimer: function() {
+        var fn = this._offlineCheck,
+          self = this;
+
+        this.debounce("offline", function () {
+          fn.call(self);
+        }, 500);
+      },
 
       _startTimer: function() {
         var refreshFn = this.go,
@@ -194,6 +251,9 @@ For example, to apply Toronto, Canada timezone to all events provided in the res
           case "timezone":
             message = "Invalid timezone value.";
             break;
+          case "offline":
+            message = "A network error occurred and no cached data available";
+            break;
         }
 
         return message;
@@ -202,6 +262,11 @@ For example, to apply Toronto, Canada timezone to all events provided in the res
       _onError: function(error, type) {
         // reset the value of events
         this._setEvents([]);
+
+        // if cached data exists, remove it
+        if (this._getCachedData()) {
+          localStorage.removeItem(LOCAL_STORAGE_NAME);
+        }
 
         this.fire("rise-google-calendar-error", this._prepareError(type, error));
 
@@ -215,6 +280,9 @@ For example, to apply Toronto, Canada timezone to all events provided in the res
 
       _onEventsListResponse: function(resp) {
         var responseData = this._prepareResponse(resp);
+
+        // cache the data if possible
+        this._setCachedData(responseData);
 
         // use setter method to apply events value because this property is read only
         this._setEvents(responseData.items);
@@ -318,7 +386,13 @@ For example, to apply Toronto, Canada timezone to all events provided in the res
 
           request.execute(function(resp) {
             if (resp.error) {
-              this._onError(resp.message, "api");
+              if (resp.code === -1) {
+                // A network error occurred, component is now running offline
+                this._handleOffline();
+              }
+              else {
+                this._onError(resp.message, "api");
+              }
             } else {
               this._onEventsListResponse(resp);
             }
@@ -328,10 +402,21 @@ For example, to apply Toronto, Canada timezone to all events provided in the res
       },
 
       _apiLoaded: function () {
+        // cancel checking for offline status
+        if (this.isDebouncerActive("offline")) {
+          this.cancelDebouncer("offline");
+        }
+
         if (this._requestPending) {
           this._requestPending = false;
           this.go();
         }
+      },
+
+      // Element Lifecycle
+
+      ready: function() {
+        this._startOfflineTimer();
       }
 
     });
