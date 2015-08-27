@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta name="viewport" content="width=device-width, minimum-scale=1.0, initial-scale=1.0, user-scalable=yes">
+  <title>rise-page Demo</title>
+
+  <script src="../../webcomponentsjs/webcomponents-lite.min.js"></script>
+
+  <link rel="import" href="../rise-page.html">
+  <link rel="import" href="../../rise-playlist/rise-playlist.html">
+  <link rel="import" href="../../rise-playlist-item/rise-playlist-item.html">
+  <link rel="import" href="../../rise-distribution/rise-distribution.html">
+  <link rel="import" href="../../rise-timeline/rise-timeline.html">
+  <link rel="import" href="demo-component.html">
+
+  <style>
+    rise-playlist {
+      display: block;
+    }
+
+    .fade-in {
+      opacity: 1;
+      transition: opacity 1s;
+    }
+
+    .fade-out {
+      opacity: 0;
+      transition: opacity 1s;
+    }
+
+    img {
+      max-width: 200px;
+    }
+
+    #messages {
+      margin-top: 10px;
+    }
+  </style>
+</head>
+<body>
+  <!-- Playback is synchronized since the corresponding playlist items in both playlists
+    have the same durations. -->
+  <rise-page id="page" display-id="VGZUDDWYAZHY">
+
+    <!-- This playlist will play since its distribution matches the value of the display-id
+      attribute of rise-page. -->
+    <rise-playlist id="playlist-1" intro="fade-in" outro="fade-out">
+      <rise-playlist-item duration="3">
+        <demo-component id="apple" src="https://goo.gl/XBnh0j"></demo-component>
+      </rise-playlist-item>
+
+      <rise-playlist-item duration="5">
+        <demo-component id="duck" class="fade-out" src="https://goo.gl/fyZFTU"></demo-component>
+      </rise-playlist-item>
+
+      <rise-distribution distribution='[{"id":"VGZUDDWYAZHY"}]'></rise-distribution>
+    </rise-playlist>
+
+    <!-- This playlist will play on all Displays, but only between the hours of 8:00 AM and
+      5:00 PM local time. -->
+    <rise-playlist id="playlist-2" intro="fade-in" outro="fade-out">
+      <rise-playlist-item duration="3">
+        <demo-component id="balloons" src="https://goo.gl/xyCpwu"></demo-component>
+      </rise-playlist-item>
+
+      <rise-playlist-item duration="5">
+        <demo-component id="moon" class="fade-out" src="https://goo.gl/VyUVhj"></demo-component>
+      </rise-playlist-item>
+
+      <rise-timeline start-time="8:00 AM" end-time="5:00 PM"></rise-timeline>
+    </rise-playlist>
+
+  </rise-page>
+
+  <form>
+    <button id="displayId" type="button">Display ID</button>
+    <button id="companyId" type="button">Company ID</button>
+    <button id="displayAddress" type="button">Display Address</button>
+  </form>
+
+  <div id="messages"></div>
+
+  <script>
+    var page = document.getElementById("page"),
+      messages = document.getElementById("messages"),
+      displayIdBtn = document.getElementById("displayId"),
+      companyIdBtn = document.getElementById("companyId"),
+      displayAddressBtn = document.getElementById("displayAddress");
+
+    function ready() {
+      var components = document.getElementsByTagName("demo-component");
+
+      for (var i = 0; i < components.length; i++) {
+        components[i].onReady();
+      }
+    }
+
+    function getDisplayId() {
+      var displayId = page.getDisplayId();
+
+      messages.innerHTML += "Display ID: " + displayId + "<br><br>";
+    }
+
+    function getCompanyId() {
+      var companyId = page.getCompanyId();
+
+      messages.innerHTML += "Company ID: " + companyId + "<br><br>";
+    }
+
+    function getDisplayAddress() {
+      var address = page.getDisplayAddress();
+
+      messages.innerHTML +=
+        "Street: " + (address.street ? address.street : "") + "<br>" +
+        "Unit: " + (address.unit ? address.unit : "") + "<br>" +
+        "City: " + (address.city ? address.city : "") + "<br>" +
+        "Province: " + (address.province ? address.province : "") + "<br>" +
+        "Postal Code: " + (address.postalCode ? address.postalCode : "") + "<br><br>";
+    }
+
+    function init() {
+      displayIdBtn.onclick = getDisplayId;
+      companyIdBtn.onclick = getCompanyId;
+      displayAddressBtn.onclick = getDisplayAddress;
+
+      ready();
+    }
+
+    window.addEventListener("WebComponentsReady", function() {
+      init();
+    });
+  </script>
+</body>
+</html>

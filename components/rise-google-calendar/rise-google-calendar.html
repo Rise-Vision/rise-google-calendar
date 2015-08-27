@@ -1,0 +1,432 @@
+<link rel="import" href="../polymer/polymer.html">
+<link rel="import" href="../google-apis/google-client-loader.html">
+
+<script src="../moment/moment.js"></script>
+<script src="../moment-timezone/builds/moment-timezone-with-data-2010-2020.js"></script>
+
+<!--
+`rise-google-calendar` is a web component that retrieves event data from a Google Calendar
+specified by calendar id. It uses the Events list query feature of the [Google Calendar API](https://developers.google.com/google-apps/calendar/) where each item represents a calendar event.
+
+The `calendar-id` attribute is required which is to identify the Google Calendar you want
+to target. A calendar must be made public and a calendars id can be found by clicking the
+dropdown next to the calendar name and viewing the settings.
+
+The data is periodically retrieved if the `refresh` attribute is set, although a minimum
+refresh time of 5 minutes is enforced.
+
+#### Example Usage
+
+    <rise-google-calendar calendar-id="abc123"></rise-google-calendar>
+
+    <script>
+      var calendar = document.querySelector('rise-google-calendar');
+
+      // Respond to events it fires.
+      calendar.addEventListener('rise-google-calendar-response', function(e) {
+        if (e.detail && e.detail.items) {
+          console.log(e.detail.items); // Array of event objects
+        }
+      });
+
+      calendar.go(); // Executes a request.
+    </script>
+
+##### Range
+`rise-google-calendar` allows for fetching specific events from a calendar by providing start
+and end dates to specify the range of events you want to retrieve.
+
+For example, to retrieve events from only 2015:
+
+    <rise-google-calendar calendar-id="abc123" start-date="2015-01-01" end-date="2015-12-31"></rise-google-calendar>
+
+##### Timezone
+`rise-google-calendar` allows for specifying a particular timezone to be applied in the response data.
+The default is the time zone of the calendar.
+
+For example, to apply Toronto, Canada timezone to all events provided in the response:
+
+    <rise-google-calendar calendar-id="abc123" timezone="America/Toronto">
+
+@demo
+-->
+<dom-module id="rise-google-calendar">
+
+  <template>
+    <google-client-loader id="calendar" name="calendar" version="v3"
+                          on-google-api-load="_apiLoaded"></google-client-loader>
+    <content></content>
+  </template>
+
+</dom-module>
+
+<script>
+  (function() {
+    /* global Polymer, moment */
+    /* jshint newcap: false */
+
+    "use strict";
+
+    var API_KEY = "AIzaSyBXxVK_IOV7LNQMuVVo_l7ZvN53ejN86zY";
+
+    var LOCAL_STORAGE_NAME = "risecalendar";
+
+    function supportsLocalStorage() {
+      try {
+        return "localStorage" in window && window.localStorage !== null;
+      } catch (e) {
+        return false;
+      }
+    }
+
+    Polymer({
+
+      is: "rise-google-calendar",
+
+      properties: {
+
+        /**
+         * `calendarId` The public calendar id. A calendars id can be found by clicking
+         * the dropdown next to the calendar name and viewing the settings.
+         */
+        calendarId: {
+          type: String,
+          value: ""
+        },
+
+        /**
+         * `events` Returns the list of events on the calendar.
+         */
+        events: {
+          type: Array,
+          value: function() { return []; },
+          readOnly: true
+        },
+
+        /**
+         * `startDate` An event's start date to filter by. Value must be in ISO 8601 YYYY-MM-DD format.
+         */
+        startDate: {
+          type: String,
+          value: ""
+        },
+
+        /**
+         * `endDate` An event's end date to filter by. Value must be in ISO 8601 YYYY-MM-DD format.
+         */
+        endDate: {
+          type: String,
+          value: ""
+        },
+
+        /**
+         * `timezone` Timezone used in the response data. Value must be an acceptable timezone, eg. America/Toronto.
+         * The default is the time zone of the calendar.
+         */
+        timezone: {
+          type: String,
+          value: ""
+        },
+
+        /**
+         * `refresh` The number of minutes before another request will be made.
+         */
+        refresh: {
+          type: Number,
+          value: 0
+        }
+
+      },
+
+      _requestPending: false,
+
+      // Element Behavior
+
+      /**
+       * Fired when a response is received.
+       *
+       * @param {Object} detail
+       * @param {Object} detail.items The data returned by the Events List query of the Google Calendar API
+       * @event rise-google-calendar-response
+       */
+
+      /**
+       * Fired when an error is received.
+       *
+       * @param {Object} detail
+       * @event rise-google-calendar-error
+       */
+
+      _getCachedData: function () {
+        if (supportsLocalStorage()) {
+          // retrieve cached data and parse back
+          return JSON.parse(localStorage.getItem(LOCAL_STORAGE_NAME));
+        }
+
+        return null;
+      },
+
+      _setCachedData: function (data) {
+        if (supportsLocalStorage()) {
+          try {
+            localStorage.setItem(LOCAL_STORAGE_NAME, JSON.stringify(data));
+          } catch(e) {
+            console.warn(e.message);
+          }
+        }
+      },
+
+      _handleOffline: function () {
+        var cachedData = this._getCachedData();
+
+        if (cachedData) {
+          this._setEvents(cachedData.items);
+
+          this.fire("rise-google-calendar-response", cachedData);
+
+          this._requestPending = false;
+          this._startTimer();
+
+        } else {
+          this._onError(null, "offline");
+        }
+      },
+
+      _offlineCheck: function () {
+        var jsApi = this.$.calendar.querySelector("google-js-api");
+
+        if (jsApi && !jsApi.libraryLoaded && jsApi.libraryErrorMessage !== null) {
+          // no internet, offline
+          this._handleOffline();
+        }
+        else {
+          // start another check for being offline
+          this._startOfflineTimer();
+        }
+      },
+
+      _startOfflineTimer: function() {
+        var fn = this._offlineCheck,
+          self = this;
+
+        this.debounce("offline", function () {
+          fn.call(self);
+        }, 500);
+      },
+
+      _startTimer: function() {
+        var refreshFn = this.go,
+          self = this;
+
+        this.refresh = parseInt(this.refresh, 10);
+
+        if (!isNaN(this.refresh) && this.refresh !== 0) {
+          this.refresh = (this.refresh < 5) ? 5 : this.refresh;
+
+          this.debounce("refresh", function () {
+            refreshFn.call(self);
+          }, this.refresh * 60000);
+        }
+      },
+
+      _prepareResponse: function (resp) {
+        var response = {};
+
+        // Provide an empty array if items property missing in response.
+        response.items = (resp.items) ? resp.items : [];
+
+        // TODO: provide calendar meta data (summary, description)?
+
+        return response;
+      },
+
+      _prepareError: function (type, error) {
+        var api = "Make sure your calendar has been made public.",
+          message = "";
+
+        switch(type) {
+          case "api":
+            message = (error && typeof error === "string" && error !== "") ? error + " - " + api : api;
+            break;
+          case "range":
+            message = "Invalid date value. Please also ensure ISO 8601 format YYYY-MM-DD" +
+              " is used for 'startDate' and 'endDate' values";
+            break;
+          case "timezone":
+            message = "Invalid timezone value.";
+            break;
+          case "offline":
+            message = "A network error occurred and no cached data available";
+            break;
+        }
+
+        return message;
+      },
+
+      _onError: function(error, type) {
+        // reset the value of events
+        this._setEvents([]);
+
+        // if cached data exists, remove it
+        if (this._getCachedData()) {
+          try {
+            localStorage.removeItem(LOCAL_STORAGE_NAME);
+          } catch (ex) {
+            console.warn(ex.message);
+          }
+        }
+
+        this.fire("rise-google-calendar-error", this._prepareError(type, error));
+
+        this._requestPending = false;
+
+        if (type === "api") {
+          // if error is api related, proceed with refresh timer in case their calendar visibility gets set to public
+          this._startTimer();
+        }
+      },
+
+      _onEventsListResponse: function(resp) {
+        var responseData = this._prepareResponse(resp);
+
+        // cache the data if possible
+        this._setCachedData(responseData);
+
+        // use setter method to apply events value because this property is read only
+        this._setEvents(responseData.items);
+
+        this.fire("rise-google-calendar-response", responseData);
+
+        this._requestPending = false;
+        this._startTimer();
+      },
+
+      _validateTimezone: function() {
+        var found;
+
+        if (this.timezone !== "") {
+          found = moment.tz.names().indexOf(this.timezone);
+          return found !== -1;
+        }
+
+        return true;
+      },
+
+      _validateRange: function() {
+        var start, end;
+
+        if (this.startDate !== "") {
+          start = moment(this.startDate, "YYYY-MM-DD", true);
+          if (!start.isValid()) {
+            return false;
+          }
+        }
+
+        if (this.endDate !== "") {
+          end = moment(this.endDate, "YYYY-MM-DD", true);
+          if (!end.isValid()) {
+            return false;
+          }
+        }
+
+        return true;
+      },
+
+      _isValid: function() {
+        if (!this._validateRange()) {
+          this._onError(null, "range");
+          return false;
+        }
+
+        if (!this._validateTimezone()) {
+          this._onError(null, "timezone");
+          return false;
+        }
+
+        return true;
+      },
+
+      _getParams: function() {
+        var params = {};
+
+        // required in every request
+        params.key = API_KEY;
+        params.calendarId = this.calendarId;
+        params.singleEvents = true;
+        params.orderBy = "startTime";
+
+        if (this.startDate !== "") {
+          params.timeMin = moment(this.startDate).format();
+        }
+
+        if (this.endDate !== "") {
+          params.timeMax = moment(this.endDate).format();
+        }
+
+        if (this.timezone !== "") {
+          params.timeZone = this.timezone;
+        }
+
+        return params;
+      },
+
+      /**
+       * Performs a request to obtain the Google Calendar events data
+       *
+       */
+      go: function() {
+        var request;
+
+        if (this.calendarId === "" || this._requestPending) {
+          return;
+        }
+
+        if (!this.$.calendar.api) {
+          // in case go() function is called before api is loaded
+          this._requestPending = true;
+          return;
+        }
+
+        if (this._isValid()) {
+          request = this.$.calendar.api.events.list(this._getParams());
+
+          this._requestPending = true;
+
+          request.execute(function(resp) {
+            if (resp.error) {
+              if (resp.code === -1) {
+                // A network error occurred, component is now running offline
+                this._handleOffline();
+              }
+              else {
+                this._onError(resp.message, "api");
+              }
+            } else {
+              this._onEventsListResponse(resp);
+            }
+          }.bind(this));
+        }
+
+      },
+
+      _apiLoaded: function () {
+        // cancel checking for offline status
+        if (this.isDebouncerActive("offline")) {
+          this.cancelDebouncer("offline");
+        }
+
+        if (this._requestPending) {
+          this._requestPending = false;
+          this.go();
+        }
+      },
+
+      // Element Lifecycle
+
+      ready: function() {
+        this._startOfflineTimer();
+      }
+
+    });
+  })();
+</script>

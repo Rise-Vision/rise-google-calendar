@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta name="viewport" content="width=device-width, minimum-scale=1.0, initial-scale=1.0, user-scalable=yes">
+  <title>rise-playlist Demo</title>
+
+  <script src="../../webcomponentsjs/webcomponents-lite.min.js"></script>
+
+  <link rel="import" href="../../rise-page/rise-page.html">
+  <link rel="import" href="../../rise-playlist-item/rise-playlist-item.html">
+  <link rel="import" href="../../rise-distribution/rise-distribution.html">
+  <link rel="import" href="../../rise-timeline/rise-timeline.html">
+  <link rel="import" href="../rise-playlist.html">
+  <link rel="import" href="demo-component.html">
+
+  <style>
+    demo-component {
+      position: absolute;
+    }
+
+    .fade-in {
+      opacity: 1;
+      transition: opacity 1s;
+    }
+
+    .fade-out {
+      opacity: 0;
+      transition: opacity 1s;
+    }
+  </style>
+</head>
+<body>
+  <rise-page id="page" display-id="VGZUDDWYAZHY">
+
+    <rise-playlist id="playlist" intro="fade-in" outro="fade-out">
+
+      <!-- This playlist item will play on the Display with an ID of VGZUDDWYAZHY, since the
+      distribution matches the value of the display-id attribute of rise-page. -->
+      <rise-playlist-item duration="3">
+        <demo-component id="apple" src="https://goo.gl/XBnh0j"></demo-component>
+        <rise-distribution distribution='[{"id":"VGZUDDWYAZHY"}]'></rise-distribution>
+      </rise-playlist-item>
+
+      <!-- This playlist item will play on all Displays, but only between the hours of 8:00 AM and
+      5:00 PM local time. -->
+      <rise-playlist-item duration="5">
+         <demo-component id="duck" src="https://goo.gl/fyZFTU"></demo-component>
+         <rise-timeline start-time="8:00 AM" end-time="5:00 PM"></rise-timeline>
+      </rise-playlist-item>
+
+    </rise-playlist>
+  </rise-page>
+</body>
+</html>

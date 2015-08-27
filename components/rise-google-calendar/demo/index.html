@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta name="viewport" content="width=device-width, minimum-scale=1.0, initial-scale=1.0, user-scalable=yes">
+  <title>rise-google-calendar Playlist Content Demo</title>
+
+  <script src="../../webcomponentsjs/webcomponents-lite.min.js"></script>
+
+  <!-- Handy Table styling -->
+  <link rel="stylesheet" href="../../pure/tables-min.css">
+
+  <link rel="import" href="../../rise-page/rise-page.html">
+  <link rel="import" href="../../rise-playlist/rise-playlist.html">
+  <link rel="import" href="../../rise-playlist-item/rise-playlist-item.html">
+  <link rel="import" href="../rise-google-calendar.html">
+
+</head>
+<body>
+
+<p>An example of <code>&lt;rise-google-calendar&gt;</code>:</p>
+
+<rise-page display-id="VGZUDDWYAZHY">
+
+  <rise-playlist id="playlist">
+
+    <rise-playlist-item>
+      <rise-google-calendar
+        id="googleCalendar"
+        calendar-id="en.canadian#holiday@group.v.calendar.google.com"
+        start-date="2015-01-01" end-date="2015-12-31">
+        <!-- Example HTML structure -->
+        <h3>Holidays in Canada</h3>
+        <table id="calendarTable" class="pure-table pure-table-bordered">
+          <thead>
+          <tr>
+            <th>Date</th>
+            <th>Summary</th>
+          </tr>
+          </thead>
+          <tbody>
+          <!-- dynamically populate table with calendar data -->
+          </tbody>
+        </table>
+      </rise-google-calendar>
+    </rise-playlist-item>
+
+  </rise-playlist>
+
+</rise-page>
+
+<!-- Handy JS library to parse, validate, manipulate, and display dates in JavaScript. -->
+<script src="../../moment/moment.js"></script>
+
+<!-- Importing javascript which is the logic in building and managing the Google Calendar content -->
+<script type="text/javascript" src="demo-playlist.js"></script>
+
+<script>
+  /* global DemoPlaylist */
+
+  (function () {
+    "use strict";
+
+    function webComponentsReady() {
+      window.removeEventListener("WebComponentsReady", webComponentsReady);
+
+      // new instance of DemoPlaylist object
+      var demo = new DemoPlaylist();
+
+      // initialize the content
+      demo.init();
+    }
+
+    window.addEventListener("WebComponentsReady", webComponentsReady);
+
+  })();
+</script>
+
+</body>
+</html>

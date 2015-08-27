@@ -1,0 +1,30 @@
+{
+  "name": "web-component-rise-playlist-item",
+  "version": "1.0.2",
+  "description": "The Rise playlist item web component functions as a container for a piece of content in an HTML page.",
+  "directories": {
+    "test": "test"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Rise-Vision/web-component-rise-playlist-item.git"
+  },
+  "keywords": [
+    "polymer",
+    "web-components"
+  ],
+  "author": "Rise Vision",
+  "license": "GPLv3",
+  "bugs": {
+    "url": "https://github.com/Rise-Vision/web-component-rise-playlist-item/issues"
+  },
+  "homepage": "https://github.com/Rise-Vision/web-component-rise-playlist-item",
+  "devDependencies": {
+    "gulp": "^3.8.11",
+    "gulp-bump": "^0.3.0",
+    "gulp-jshint": "^1.10.0",
+    "gulp-watch": "^4.2.4",
+    "jshint-stylish": "^1.0.1",
+    "run-sequence": "^1.0.2"
+  }
+}

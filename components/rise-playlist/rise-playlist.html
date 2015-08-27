@@ -1,0 +1,464 @@
+<link rel="import" href="../polymer/polymer.html">
+
+<script src="../underscore/underscore.js"></script>
+
+<!--
+`rise-playlist` is a Polymer Web Component that works with <a href="https://www.risevision.com/">Rise Vision</a>, the digital signage management application for <a href="http://risevision.com/web-designers">Web Designers</a>. Its purpose is to rotate between different pieces of content on an HTML page.
+
+### Example Usage
+
+      <rise-page id="page" display-id="your-display-id">
+        <rise-playlist id="playlist">
+          <rise-playlist-item duration="3">
+            <demo-component id="apple" src="https://url.to.apple.png"></demo-component>
+          </rise-playlist-item>
+        </rise-playlist>
+      </rise-page>
+
+@demo demo/
+-->
+
+<dom-module id="rise-playlist">
+  <template>
+    <content id="items" select="rise-playlist-item"></content>
+    <content></content>
+  </template>
+</dom-module>
+
+<script>
+  /* global Polymer, _ */
+  /* jshint newcap: false */
+</script>
+
+<script>
+  Polymer({
+    is: "rise-playlist",
+
+    properties: {
+      /**
+       * The CSS class name for an intro transition.
+       */
+      intro: String,
+
+      /**
+       * The CSS class name for an outro transition.
+       */
+      outro: String
+    },
+
+    /**
+     * The playlist items.
+     */
+    _items: [],
+
+    /**
+     * The total number of playlist items.
+     */
+    _totalItems: 0,
+
+    /**
+     * The number of playlist items that have reported as being ready.
+     */
+    _numItems: 0,
+
+    /**
+     * The delay (in ms) for the timeout that fires if not all playlist items have reported ready.
+     */
+    _loadingDelay: 5000,
+
+    /**
+     * The Display ID from the containing page element.
+     */
+     _displayId: "",
+
+    /************************************** INITIALIZATION **************************************/
+
+    /**
+     * An instance of the element was inserted into the DOM.
+     */
+    attached: function() {
+      var nodes = Polymer.dom(this.$.items).getDistributedNodes();
+
+      this._items = [];
+      this._displayId = this._getDisplayId();
+
+      for (var i = 0; i < nodes.length; i++) {
+        if (nodes[i].nodeType === 1) {
+          this._addItem(nodes[i]);
+          this._totalItems++;
+        }
+      }
+
+      this._hideAll();
+      this.addEventListener("rise-component-ready", this._handleReady, false);
+      this.addEventListener("rise-component-done", this._handleDone, false);
+
+      this.debounce("start", function() {
+        this._start();
+      }, this._loadingDelay);
+    },
+
+    /**
+     * Dispatches rise-playlist-ready to indicate that the playlist has initialized.
+     */
+    _dispatchReady: function() {
+      var readyEvent = new CustomEvent("rise-playlist-ready", {
+        "detail": {
+          "items": this._items
+        },
+        "bubbles": true
+      });
+
+      this.dispatchEvent(readyEvent);
+    },
+
+    /**
+     * Adds more details about a particular content element once it's ready.
+     */
+    _handleReady: function(e) {
+      var item = _.findWhere(this._items, { id: e.target.id });
+
+      // No content element with this id was found or it has already reported ready.
+      if ((item === undefined) || item.isReady) {
+        return;
+      }
+
+      // Check the distribution to see if the playlist item should play on this Display.
+      if (this._checkDistribution(item.element)) {
+        item.isReady = true;
+
+        if (e.detail) {
+          if (e.detail.play) {
+            item.play = e.detail.play;
+          }
+
+          if (e.detail.pause) {
+            item.pause = e.detail.pause;
+          }
+
+          if (e.detail.stop) {
+            item.stop = e.detail.stop;
+          }
+
+          if (e.detail.done) {
+            item.done = e.detail.done;
+          }
+        }
+      }
+      // Hide and remove the playlist item from the master array of items.
+      else {
+        item.element.style.display = "none";
+        this._items = _.without(this._items, item);
+      }
+
+      this._numItems++;
+
+      if (this._numItems === this._totalItems) {
+        this._start();
+        this.cancelDebouncer("start");
+      }
+
+      e.stopPropagation();
+    },
+
+    /****************************************** TIMELINE ******************************************/
+
+    /**
+     * Check whether or not to play an item based on its timeline.
+     */
+     checkTimeline: function(index) {
+      var item = this._getItem(index),
+        playlistItem = item.element.parentElement,
+        timeline = null;
+
+      if (playlistItem !== null) {
+        timeline = playlistItem.querySelector("rise-timeline");
+
+        if (timeline !== null) {
+          return timeline.canPlay();
+        }
+      }
+
+      // Play the item even if there is no rise-timeline element.
+      return true;
+    },
+
+    /**************************************** DISTRIBUTION ****************************************/
+
+    /**
+     * Determine whether or not to play an item based on its distribution.
+     */
+    _checkDistribution: function(element) {
+      var playlistItem = element.parentElement,
+        distributionElem, distribution;
+
+      if (playlistItem !== null) {
+        distributionElem = playlistItem.querySelector("rise-distribution");
+
+        if (distributionElem !== null) {
+          distribution = JSON.parse(distributionElem.getAttribute("distribution"));
+
+          // Check if any of the distribution values match the Display ID of the page.
+          if (distribution !== null) {
+            for (var j = 0; j < distribution.length; j++) {
+              if (distribution[j].id === this._displayId) {
+                return true;
+              }
+            }
+          }
+        }
+        else {
+           // Play the item even if there is no rise-distribution element.
+          return true;
+        }
+      }
+
+      return false;
+    },
+
+    /**
+     * Returns the Display ID from the containing page element.
+     */
+    _getDisplayId: function() {
+      if (this.parentNode && (this.parentNode.nodeName === "RISE-PAGE")) {
+        return this.parentNode.getDisplayId();
+      }
+
+      return "";
+    },
+
+    /****************************************** PLAYBACK ******************************************/
+
+    /**
+     * Starts playlist playback.
+     */
+    _start: function() {
+      if (this._items.length > 0) {
+        this._dispatchReady();
+      }
+    },
+
+    /**
+     * Plays a playlist item.
+     */
+    play: function(index) {
+      var item = this._getItem(index);
+
+      // Only play the item if it's ready.
+      if ((item !== null) && item.isReady) {
+        this._show(index);
+        this._sendCommand(item, "play");
+      }
+    },
+
+    /**
+     * Suspends playback of a playlist item.
+     */
+    _suspend: function(index, command) {
+      var item = this._getItem(index);
+
+      if (item !== null) {
+        this._hide(index);
+        this._sendCommand(item, command);
+      }
+    },
+
+    /**
+     * Plays the next item in the playlist.
+     */
+    _playNext: function(index) {
+      var duration,
+        nextIndex = this._getNextIndex(index),
+        nextItem = this._getItem(nextIndex);
+
+      // Suspend current item.
+      this._suspend(index, "pause");
+
+      // Play next item.
+      if ((nextItem !== null) && nextItem.isReady) {
+        duration = nextItem.duration;
+
+        // Ensure the item plays for its specified duration.
+        if (duration !== 0) {
+          this.debounce("play-next", function() {
+            this._playNext(nextIndex);
+          }, duration);
+        }
+
+        this.play(nextIndex);
+      }
+    },
+
+    /**
+     * Pauses a playlist item.
+     */
+    pause: function(index) {
+      this._suspend(index, "pause");
+    },
+
+    /**
+     * Stops a playlist item.
+     */
+    stop: function(index) {
+      this._suspend(index, "stop");
+    },
+
+    /**
+     * Handles the rise-component-done event.
+     */
+    _handleDone: function(e) {
+      // Find the playlist item that fired the event.
+      for (var index = 0; index < this._items.length; index++) {
+        if (this._items[index].id === e.target.id) {
+          this._playNext(index);
+
+          break;
+        }
+      }
+
+      e.stopPropagation();
+    },
+
+    /************************************** HELPER FUNCTIONS **************************************/
+
+    /**
+     * Adds the content element of a playlist item to _items.
+     */
+    _addItem: function(playlistItem) {
+      var item = {},
+        contentElement = null,
+        duration = this._getDuration(playlistItem);
+
+      contentElement = this._getContentElement(playlistItem);
+
+      if (contentElement) {
+        if (contentElement.id !== "") {
+          item.isReady = false;
+          item.duration = duration;
+          item.id = contentElement.id;
+          item.element = contentElement;
+
+          this._items.push(item);
+        }
+      }
+    },
+
+    /**
+     * Returns the content element nested inside of the playlist item.
+     */
+    _getContentElement: function(playlistItem) {
+      var children = null;
+
+      if (playlistItem && playlistItem.hasChildNodes()) {
+        children = playlistItem.childNodes;
+
+        for (var i = 0; i < children.length; i++) {
+          if (children[i].nodeType === 1) {
+            return children[i];
+          }
+        }
+      }
+
+      return null;
+    },
+
+    /**
+     * Returns a playlist item by index.
+     */
+    _getItem: function(index) {
+      var itemsLength = this._items.length;
+
+      if ((index >= 0) && (index < itemsLength)) {
+        return this._items[index];
+      }
+
+      return null;
+    },
+
+    /**
+     * Returns the duration of a playlist item.
+     */
+    _getDuration: function(playlistItem) {
+      var duration = 0;
+
+      if (playlistItem && playlistItem.hasAttribute("duration")) {
+        duration = parseInt(playlistItem.getAttribute("duration"), 10);
+
+        // Invalid duration
+        if (isNaN(duration)) {
+          duration = 0;
+        }
+      }
+      else {
+        duration = 0;
+      }
+
+      return duration * 1000;
+    },
+
+    /**
+     * Returns the index of the next playlist item.
+     */
+    _getNextIndex: function(index) {
+      return (index + 1 < this._items.length) ? (index + 1): 0;
+    },
+
+    /**
+     * Hides all playlist items.
+     */
+    _hideAll: function() {
+      for (var i = 0; i < this._items.length; i++) {
+        this._hide(i);
+      }
+    },
+
+    /**
+     * Hides a playlist item.
+     */
+    _hide: function(index) {
+      var item = this._getItem(index);
+
+      if (item) {
+        if (this.intro) {
+          item.element.classList.remove(this.intro);
+        }
+
+        if (this.outro) {
+          item.element.classList.add(this.outro);
+        }
+        else {
+          item.element.style.display = "none";
+        }
+      }
+    },
+
+    /**
+     * Shows a playlist item.
+     */
+    _show: function(index) {
+      var item = this._getItem(index);
+
+      if (item) {
+        if (this.intro) {
+          item.element.classList.add(this.intro);
+        }
+        else {
+          item.element.style.display = "block";
+        }
+
+        if (this.outro) {
+          item.element.classList.remove(this.outro);
+        }
+      }
+    },
+
+    /**
+     * Sends a command to a playlist item.
+     */
+    _sendCommand: function(item, command) {
+      if (item.hasOwnProperty(command)) {
+        item[command].call(item.element);
+      }
+    }
+  });
+</script>

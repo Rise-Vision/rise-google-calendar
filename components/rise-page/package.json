@@ -1,0 +1,35 @@
+{
+  "name": "rise-page",
+  "version": "1.0.2",
+  "description": "The Rise Page Web Component controls the playback of its child elements. It also provides the ability for other components on the page to query for information about the Display.",
+  "scripts": {
+    "test": "gulp test",
+    "build": "gulp build"
+  },
+  "directories": {
+    "test": "test"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Rise-Vision/rise-page.git"
+  },
+  "keywords": [
+    "polymer",
+    "web-components"
+  ],
+  "author": "Rise Vision",
+  "license": "GPLv3",
+  "bugs": {
+    "url": "https://github.com/Rise-Vision/rise-page/issues"
+  },
+  "homepage": "https://github.com/Rise-Vision/rise-page",
+  "devDependencies": {
+    "gulp": "^3.8.10",
+    "gulp-bump": "^0.1.11",
+    "gulp-jshint": "^1.9.0",
+    "gulp-watch": "^1.2.0",
+    "jshint-stylish": "^1.0.0",
+    "run-sequence": "^1.0.1",
+    "web-component-tester": "^3.1.3"
+  }
+}

@@ -1,0 +1,48 @@
+{
+  "name": "rise-google-calendar",
+  "authors": [
+    "Stuart Lees <stuart.lees@risevision.com>"
+  ],
+  "description": "Rise Vision web component for retrieving Google Calendar event data.",
+  "keywords": [
+    "web-component",
+    "web-components",
+    "polymer",
+    "calendar",
+    "google-calendar"
+  ],
+  "main": "rise-google-calendar.html",
+  "license": "GPLv3",
+  "homepage": "https://github.com/Rise-Vision/rise-google-calendar",
+  "ignore": [
+    "/.*",
+    "/test/",
+    "/demo/",
+    "/node_modules"
+  ],
+  "dependencies": {
+    "google-apis": "GoogleWebComponents/google-apis#^1.0",
+    "moment": "~2.10.3",
+    "moment-timezone": "~0.4.0",
+    "polymer": "Polymer/polymer#^1.0.0",
+    "underscore": "~1.8.2"
+  },
+  "devDependencies": {
+    "iron-component-page": "PolymerElements/iron-component-page#^1.0.0",
+    "pure": "^0.6.0",
+    "rise-page": "https://github.com/Rise-Vision/rise-page.git",
+    "rise-playlist": "https://github.com/Rise-Vision/rise-playlist.git",
+    "rise-playlist-item": "https://github.com/Rise-Vision/rise-playlist-item.git",
+    "web-component-tester": "*"
+  },
+  "_release": "1e29a74bac",
+  "_resolution": {
+    "type": "branch",
+    "branch": "master",
+    "commit": "1e29a74baca5d20b39b74eb6997bbc0d5f187226"
+  },
+  "_source": "git://github.com/Rise-Vision/rise-google-calendar.git",
+  "_target": "master",
+  "_originalSource": "Rise-Vision/rise-google-calendar",
+  "_direct": true
+}

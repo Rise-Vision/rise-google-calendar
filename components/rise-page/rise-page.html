@@ -1,0 +1,402 @@
+<link rel="import" href="../polymer/polymer.html">
+<link rel="import" href="../iron-ajax/iron-ajax.html">
+
+<script src="../underscore/underscore.js"></script>
+
+<!--
+`rise-page` is a Polymer Web Component that works with <a href="https://www.risevision.com/">Rise Vision</a>, the digital signage management application for <a href="http://risevision.com/web-designers">Web Designers</a>. It controls the playback of its nested playlists, and surfaces methods for returning details about the Display.
+
+### Example Usage
+
+      <rise-page id="page" display-id="your-display-id">
+        <rise-playlist id="playlist">
+          <rise-playlist-item duration="3">
+            <demo-component id="apple" src="https://url.to.apple.png"></demo-component>
+          </rise-playlist-item>
+        </rise-playlist>
+      </rise-page>
+
+@demo
+-->
+
+<dom-module id="rise-page">
+  <template>
+    <content id="playlists" select="rise-playlist"></content>
+
+    <iron-ajax id="display"
+      url={{_computeUrl(displayId)}}
+      handle-as="json"
+      on-response="_handleResponse"
+      verbose="true">
+    </iron-ajax>
+  </template>
+</dom-module>
+
+<script>
+  /* global Polymer, _ */
+  /* jshint newcap: false */
+</script>
+
+<script>
+  Polymer({
+    is: "rise-page",
+
+    properties: {
+      /**
+       * The ID of the Display.
+       */
+      displayId: {
+        type: String,
+        value: ""
+      }
+    },
+
+    /**
+     * The playlists.
+     */
+    _allPlaylists: [],
+
+    /**
+     * An object containing playlists that are grouped by shared playlist item durations.
+     */
+    _groupedPlaylists: {},
+
+    /**
+     * The total number of playlists.
+     */
+    _totalPlaylists: 0,
+
+    /**
+     * The number of playlists that have reported as being ready.
+     */
+    _numPlaylists: 0,
+
+    /**
+     * Object containing information about the Display.
+     */
+    _displayInfo: null,
+
+    /**
+     * The delay (in ms) for the timeout that fires to refresh the Display info.
+     */
+    _displayDelay: 900000,
+
+    /*************************************** INITIALIZATION ***************************************/
+
+    /**
+     * Constructs the base URL for the Display request.
+     */
+    _computeUrl: function(displayId) {
+      return "https://rvaserver2.appspot.com/_ah/api/content/v0/display?id=" + displayId;
+    },
+
+    /**
+     * An instance of the element was inserted into the DOM.
+     */
+    attached: function() {
+      var playlists = Polymer.dom(this.$.playlists).getDistributedNodes(),
+        playlist = null;
+
+      // Find all rise-playlist elements and add them to an array.
+      for (var i = 0; i < playlists.length; i++) {
+        if (playlists[i].nodeType === 1) {
+          playlist = this._getPlaylistObj(playlists[i]);
+
+          if (playlist !== null) {
+            this._allPlaylists.push(playlist);
+            this._totalPlaylists++;
+          }
+        }
+      }
+
+      if (this._totalPlaylists > 0) {
+        this.addEventListener("rise-playlist-ready", this._handleReady);
+      }
+
+      this._getDisplayInfo();
+    },
+
+    /**
+     * Stores additional details about a playlist.
+     */
+    _handleReady: function(e) {
+      var playlist = _.findWhere(this._allPlaylists, { id: e.target.id });
+
+      // No playlist with this id was found or it has already reported ready.
+      if ((playlist === undefined) || playlist.isReady) {
+        return;
+      }
+
+      // Check the distribution to see if the playlist should play on this Display.
+      if (this._checkDistribution(playlist)) {
+        playlist.isReady = true;
+
+        if (e.detail && e.detail.items) {
+          playlist.items = e.detail.items;
+        }
+      }
+      // Hide and remove the playlist from the master array of playlists.
+      else {
+        playlist.element.style.display = "none";
+        this._allPlaylists = _.without(this._allPlaylists, playlist);
+      }
+
+      this._numPlaylists++;
+
+      // Start playback once all playlists have reported ready.
+      if (this._numPlaylists === this._totalPlaylists) {
+        this._start();
+      }
+    },
+
+    /**************************************** DISTRIBUTION ****************************************/
+
+    /**
+     * Determines whether or not to play a playlist based on its distribution and the Display ID.
+     */
+    _checkDistribution: function(playlist) {
+      var distribution = document.querySelector("#" + playlist.id + " > rise-distribution");
+
+      if (distribution !== null) {
+        return distribution.canPlay(this.getDisplayId());
+      }
+      // Play the playlist even if there is no rise-distribution element.
+      else {
+        return true;
+      }
+    },
+
+    /****************************************** TIMELINE ******************************************/
+
+    /**
+     * Checks whether or not to play a playlist based on its timeline.
+     */
+    _checkTimeline: function(playlist) {
+      var timeline = document.querySelector("#" + playlist.id + " > rise-timeline");
+
+      if (timeline !== null) {
+        return timeline.canPlay();
+      }
+      // Play the playlist if there is no rise-timeline element.
+      else {
+        return true;
+      }
+    },
+
+    /****************************************** PLAYBACK ******************************************/
+
+    /**
+     * Starts all playlists.
+     */
+    _start: function() {
+      if (this._allPlaylists.length > 0) {
+        this._play(this._allPlaylists);
+      }
+    },
+
+    /**
+     * Returns only those playlists that are currently scheduled to play.
+     */
+    _getPlayablePlaylists: function(playlists) {
+      var newPlaylists = [];
+
+      for (var i = 0; i < playlists.length; i++) {
+        if (playlists[i].isReady && this._checkTimeline(playlists[i])) {
+          newPlaylists.push(playlists[i]);
+        }
+      }
+
+      return newPlaylists;
+    },
+
+    /**
+     * Returns all playlists that should be played together.
+     */
+    _getSyncedPlaylists: function(playlists) {
+      var items = {};
+
+      // Get unique durations of all playlist items at the specified index.
+      items = _.groupBy(playlists, function(playlist) {
+        return playlist.items[playlist.index].duration;
+      });
+
+      return items;
+    },
+
+    /*
+     * Starts a timer to interrupt the playback of playlists.
+     */
+    _startTimer: function(playlists, duration) {
+      if (duration > 0) {
+        this.async(function() {
+          this._playNext(playlists);
+        }, duration);
+      }
+      /* jshint ignore:start */
+      else {
+        // Playlist item is PUD. Playlist will take over playback from here.
+      }
+      /* jshint ignore:end */
+    },
+
+    /**
+     * Checks if a playlist item is scheduled to play.
+     */
+    _itemCanPlay: function(playlist) {
+      return playlist.element && playlist.element.checkTimeline.call(playlist.element, playlist.index);
+    },
+
+    /**
+     * Starts playing an item for every playlist.
+     */
+    _play: function(playlists) {
+      var self = this,
+        scheduled = true,
+        syncedPlaylists = null,
+        startIndex;
+
+      playlists = this._getPlayablePlaylists(playlists);
+      syncedPlaylists = this._getSyncedPlaylists(playlists);
+
+      _.each(syncedPlaylists, function(playlists, duration) {
+        for (var i = 0; i < playlists.length; i++) {
+          scheduled = true;
+          startIndex = playlists[i].index;
+
+          // Find the first item in the playlist that is scheduled to play.
+          while (!self._itemCanPlay(playlists[i])) {
+            playlists[i].index = self._getIndex(playlists[i]);
+
+            // There are no items in the playlist that can be played.
+            if (startIndex === playlists[i].index) {
+              scheduled = false;
+
+              break;
+            }
+          }
+
+          if (scheduled) {
+            playlists[i].element.play(playlists[i].index);
+          }
+        }
+
+        self._startTimer(playlists, duration);
+      });
+    },
+
+    /**
+     * Pauses the currently playing item(s) and plays next item(s).
+     */
+    _playNext: function(playlists) {
+      var playlist = null;
+
+      // Pause current playing item(s).
+      for (var i = 0; i < playlists.length; i++) {
+        playlist = playlists[i];
+
+        if (playlist.element) {
+          playlist.element.pause(playlist.index);
+        }
+
+        playlist.index = this._getIndex(playlist);
+      }
+
+      // Play next item(s).
+      this._play(playlists);
+    },
+
+    /**************************************** DISPLAY INFO ****************************************/
+
+    /**
+     * Returns the Display ID.
+     */
+    getDisplayId: function() {
+      return this.displayId;
+    },
+
+    /**
+     * Returns the Company ID of the Display.
+     */
+    getCompanyId: function() {
+      if (this._displayInfo && this._displayInfo.companyId) {
+        return this._displayInfo.companyId;
+      }
+      else {
+        return null;
+      }
+    },
+
+    /**
+     * Returns the address of the Display.
+     */
+    getDisplayAddress: function() {
+      if (this._displayInfo && this._displayInfo.displayAddress) {
+        return this._displayInfo.displayAddress;
+      }
+      else {
+        return {};
+      }
+    },
+
+    /**
+     * Requests information about a Display from the Content API.
+     */
+    _getDisplayInfo: function() {
+      this.$.display.generateRequest();
+
+      this.debounce("display-info", function() {
+        this._getDisplayInfo();
+      }, this._displayDelay);
+    },
+
+    /**
+     * Fires when a response is received from the Content API.
+     */
+    _handleResponse: function(e, resp) {
+      if (resp && resp.response && resp.response.item) {
+        this._displayInfo = resp.response.item;
+      }
+    },
+
+    /************************************** HELPER FUNCTIONS **************************************/
+
+    /**
+     * Returns an object containing additional details about a playlist.
+     */
+    _getPlaylistObj: function(node) {
+      var playlist = {};
+
+      if (node) {
+        if (node.id !== "") {
+          playlist.isReady = false;
+          playlist.id = node.id;
+          playlist.index = 0;
+          playlist.element = node;
+
+          return playlist;
+        }
+        else {
+          console.log("Playlist is missing an id attribute");
+          return null;
+        }
+      }
+      else {
+        return null;
+      }
+    },
+
+    /**
+     * Returns the index of the next item in each playlist.
+     */
+    _getIndex: function(playlist) {
+      var index = playlist.index + 1;
+
+      // Reset index if an item does not exist at the current index.
+      if (index >= playlist.items.length) {
+        index = 0;
+      }
+
+      return index;
+    }
+  });
+</script>
