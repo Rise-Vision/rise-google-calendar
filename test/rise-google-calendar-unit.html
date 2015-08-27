@@ -14,6 +14,7 @@
     <rise-google-calendar></rise-google-calendar>
 
     <script src="data/events.js"></script>
+    <script src="/node_modules/widget-tester/mocks/localStorage-mock.js"></script>
 
     <script>
       var calendarEl = document.querySelector('rise-google-calendar');
@@ -63,6 +64,11 @@
         suite("_onError", function () {
           var startTimerStub;
 
+          teardown(function () {
+            window.localStorageError = false;
+            localStorage.removeItem("risecalendar");
+          });
+
           test("should make call to _prepareError for retrieving error message", function() {
             var prepStub = sinon.stub(calendarEl, "_prepareError", function(){});
 
@@ -105,16 +111,37 @@
             assert.isTrue(responded);
             done();
           });
+
+          test("should remove item from localStorage if it exists", function () {
+            localStorage.setItem("risecalendar", JSON.stringify({items: eventsData.items}));
+
+            calendarEl._onError(null, "timezone");
+
+            assert.isNull(localStorage.getItem("risecalendar"));
+          });
+
+          test("should catch error thrown by localStorage.removeItem and log a warning in console", function () {
+            var consoleSpy = sinon.spy(console, "warn");
+
+            localStorage.setItem("risecalendar", JSON.stringify({items:eventsData.items}));
+
+            // force an error from localStorage.removeItem()
+            window.localStorageError = true;
+
+            calendarEl._onError(null, "timezone");
+
+            assert(consoleSpy.calledOnce);
+            console.warn.restore();
+          });
         });
 
         suite("_onEventsListResponse", function () {
           teardown(function() {
             calendarEl._setEvents([]);
+            localStorage.removeItem("risecalendar");
           });
 
           test("should fire rise-google-sheet-response, set events property, and save to local storage", function(done) {
-            var setCachedDataStub = sinon.stub(calendarEl, "_setCachedData", function () {});
-
             listener = function(response) {
               responded = true;
 
@@ -128,11 +155,11 @@
             calendarEl.addEventListener("rise-google-calendar-response", listener);
             calendarEl._onEventsListResponse(eventsData);
 
-            assert(setCachedDataStub.calledOnce, "call to _setCachedData is made");
             assert.deepEqual(calendarEl.events, eventsData.items, "events property is set correctly");
-            assert.isTrue(responded);
+            assert.deepEqual(JSON.parse(localStorage.getItem("risecalendar")), {items: eventsData.items},
+              "localStorage saved data correctly");
 
-            calendarEl._setCachedData.restore();
+            assert.isTrue(responded);
 
             done();
           });
@@ -306,6 +333,57 @@
           });
         });
 
+        suite("_setCachedData", function () {
+
+          teardown(function () {
+            window.localStorageError = false;
+            localStorage.removeItem("risecalendar");
+          });
+
+          test("should catch error thrown by localStorage.setItem and log a warning in console", function () {
+            var warnSpy = sinon.spy(console, "warn");
+
+            // force an error from localStorage.setItem()
+            window.localStorageError = true;
+
+            calendarEl._setCachedData({items: eventsData.items});
+
+            assert(warnSpy.calledOnce);
+            console.warn.restore();
+          });
+
+          test("should ensure data passed in localStorage.setItem() is stringified", function () {
+            calendarEl._setCachedData({items:eventsData.items});
+
+            var value = localStorage.getItem("risecalendar");
+
+            assert.isString(value);
+          });
+
+        });
+
+        suite("_getCachedData", function () {
+          var value;
+
+          teardown(function () {
+            localStorage.removeItem("risecalendar");
+          });
+
+          test("Should return null when no cached data exists", function () {
+            value = calendarEl._getCachedData();
+
+            assert.isNull(value);
+          });
+
+          test("Should ensure value returned has been parsed as JSON", function () {
+            localStorage.setItem("risecalendar", JSON.stringify({items: eventsData.items}));
+
+            value = calendarEl._getCachedData();
+
+            assert.isObject(value);
+          });
+        });
+
         suite("_startTimer", function() {
           var goStub;
 
@@ -362,20 +440,12 @@
         });
 
         suite("_handleOffline", function () {
-          var cachedDataStub;
-
           teardown(function () {
-            calendarEl._getCachedData.restore();
             calendarEl._setEvents([]);
+            localStorage.removeItem("risecalendar");
           });
 
           test("should fire rise-google-sheet-response and set events property with cached data", function (done) {
-            cachedDataStub = sinon.stub(calendarEl, "_getCachedData", function() {
-              return {
-                items: eventsData.items
-              };
-            });
-
             listener = function(response) {
               responded = true;
 
@@ -383,6 +453,9 @@
 
               calendarEl.removeEventListener("rise-google-calendar-response", listener);
             };
+
+            // ensure cached data exists
+            localStorage.setItem("risecalendar", JSON.stringify({items:eventsData.items}));
 
             calendarEl.addEventListener("rise-google-calendar-response", listener);
             calendarEl._handleOffline();
@@ -395,10 +468,6 @@
 
           test("should make call to _onError due to no cached data", function () {
             var errorStub = sinon.stub(calendarEl, "_onError", function () {});
-
-            cachedDataStub = sinon.stub(calendarEl, "_getCachedData", function() {
-              return null;
-            });
 
             calendarEl._handleOffline();
             assert(errorStub.calledOnce);

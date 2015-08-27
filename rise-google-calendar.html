@@ -168,7 +168,11 @@ For example, to apply Toronto, Canada timezone to all events provided in the res
 
       _setCachedData: function (data) {
         if (supportsLocalStorage()) {
-          localStorage.setItem(LOCAL_STORAGE_NAME, JSON.stringify(data));
+          try {
+            localStorage.setItem(LOCAL_STORAGE_NAME, JSON.stringify(data));
+          } catch(e) {
+            console.warn(e.message);
+          }
         }
       },
 
@@ -265,7 +269,11 @@ For example, to apply Toronto, Canada timezone to all events provided in the res
 
         // if cached data exists, remove it
         if (this._getCachedData()) {
-          localStorage.removeItem(LOCAL_STORAGE_NAME);
+          try {
+            localStorage.removeItem(LOCAL_STORAGE_NAME);
+          } catch (ex) {
+            console.warn(ex.message);
+          }
         }
 
         this.fire("rise-google-calendar-error", this._prepareError(type, error));
