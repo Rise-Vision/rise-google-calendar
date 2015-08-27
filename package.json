@@ -1,6 +1,6 @@
 {
   "name": "rise-google-calendar",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Rise Vision web component for retrieving Google Calendar event data.",
   "scripts": {
     "test": "gulp test",
@@ -37,6 +37,7 @@
     "gulp-jshint": "~1.10.0",
     "jshint-stylish": "~1.0.2",
     "run-sequence": "~1.1.0",
-    "web-component-tester": "*"
+    "web-component-tester": "*",
+    "widget-tester": "https://github.com/Rise-Vision/widget-tester.git"
   }
 }
